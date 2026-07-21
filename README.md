@@ -1,4 +1,5 @@
 # Tidyly
+<img src="Tidyly/Assets.xcassets/AppIcon.appiconset/AppIcon-1024.png" alt="Tidyly Logo" width="400">
 
 Tidyly is a native SwiftUI home-care app for organizing recurring cleaning tasks by room. The application is local-first: rooms, tasks, completion records, activity history, settings, and reminder preferences are stored on the device with SwiftData.
 
