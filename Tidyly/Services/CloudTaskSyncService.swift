@@ -138,7 +138,7 @@ final class CloudTaskSyncService: ObservableObject {
         let taskRecords = snapshot.tasks.map { task -> CKRecord in
             let record = CKRecord(recordType: "TidylyTask", recordID: CKRecord.ID(recordName: task.id.uuidString, zoneID: zoneID))
             record["id"] = task.id.uuidString; record["roomId"] = task.roomId.uuidString; record["title"] = task.title
-            record["isGeneralHouseholdTask"] = task.isGeneralHouseholdTask
+            record["isGeneralHouseholdTask"] = NSNumber(value: task.isGeneralHouseholdTask)
             record["frequencyDays"] = task.frequencyDays; record["priority"] = task.priority; record["estimatedMinutes"] = task.estimatedMinutes
             record["lastDoneAt"] = task.lastDoneAt; record["nextDueAt"] = task.nextDueAt; record["sortOrder"] = task.sortOrder
             record["createdAt"] = task.createdAt; record["updatedAt"] = task.updatedAt
@@ -182,7 +182,8 @@ final class CloudTaskSyncService: ObservableObject {
               let priority = record["priority"] as? String, let estimatedMinutes = record["estimatedMinutes"] as? Int,
               let nextDueAt = record["nextDueAt"] as? Date, let sortOrder = record["sortOrder"] as? Int,
               let createdAt = record["createdAt"] as? Date, let updatedAt = record["updatedAt"] as? Date else { return nil }
-        return CloudTaskData(id: id, roomId: roomId, isGeneralHouseholdTask: record["isGeneralHouseholdTask"] as? Bool ?? false, title: title, frequencyDays: frequencyDays, priority: priority, estimatedMinutes: estimatedMinutes, lastDoneAt: record["lastDoneAt"] as? Date, nextDueAt: nextDueAt, sortOrder: sortOrder, createdAt: createdAt, updatedAt: updatedAt)
+        let isGeneralHouseholdTask = (record["isGeneralHouseholdTask"] as? NSNumber)?.boolValue ?? false
+        return CloudTaskData(id: id, roomId: roomId, isGeneralHouseholdTask: isGeneralHouseholdTask, title: title, frequencyDays: frequencyDays, priority: priority, estimatedMinutes: estimatedMinutes, lastDoneAt: record["lastDoneAt"] as? Date, nextDueAt: nextDueAt, sortOrder: sortOrder, createdAt: createdAt, updatedAt: updatedAt)
     }
 
     private static func userMessage(for error: Error) -> String {
