@@ -410,6 +410,8 @@ private struct StatBox: View {
 }
 
 private struct TaskRow: View {
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+
     let task: Task
     var isSaving: Bool = false
     var onComplete: () -> Void
@@ -428,80 +430,120 @@ private struct TaskRow: View {
     }
 
     var body: some View {
-        HStack(spacing: AppTheme.spacingMd) {
-            Button {
-                onComplete()
-            } label: {
-                ZStack {
-                    Circle().strokeBorder(ColorAsset.borderDark.color, lineWidth: 2)
-                    if isSaving { ProgressView().controlSize(.small) }
-                }
-                .frame(width: 44, height: 44)
-            }
-            .buttonStyle(.plain)
-            .disabled(isSaving)
-            .accessibilityLabel("Complete \(task.title)")
-            .accessibilityHint("Marks this task complete")
-
-            VStack(alignment: .leading, spacing: 4) {
-                Text(task.title)
-                    .font(.system(size: 15, weight: .semibold))
-                    .foregroundColor(ColorAsset.text.color)
-
-                HStack(spacing: AppTheme.spacingSm) {
-                    HStack(spacing: 4) {
-                        Circle()
-                            .fill(task.priority.color.color)
-                            .frame(width: 6, height: 6)
-                        Text(task.priority.label)
-                            .font(.system(size: 11, weight: .semibold))
-                            .foregroundColor(task.priority.color.color)
+        Group {
+            if dynamicTypeSize.isAccessibilitySize {
+                VStack(alignment: .leading, spacing: AppTheme.spacingMd) {
+                    HStack(alignment: .top, spacing: AppTheme.spacingMd) {
+                        completionButton
+                        taskTitle
+                        Spacer(minLength: AppTheme.spacingSm)
+                        TaskRescheduleMenu(task: task, isSaving: isSaving, onReschedule: onReschedule)
                     }
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 3)
-                    .background(task.priority.color.color.opacity(0.12))
-                    .cornerRadius(8)
-
-                    HStack(spacing: 3) {
-                        Image(systemName: "clock")
-                            .font(.system(size: 11))
-                            .foregroundColor(ColorAsset.textTertiary.color)
-                        Text("\(task.estimatedMinutes)m")
-                            .font(.system(size: 11, weight: .medium))
-                            .foregroundColor(ColorAsset.textTertiary.color)
+                    VStack(alignment: .leading, spacing: AppTheme.spacingSm) {
+                        metadata
+                        dueBadge
                     }
-
-                    Text("Every \(task.frequencyDays)d")
-                        .font(.system(size: 11, weight: .medium))
-                        .foregroundColor(ColorAsset.textTertiary.color)
+                }
+            } else {
+                HStack(spacing: AppTheme.spacingMd) {
+                    completionButton
+                    VStack(alignment: .leading, spacing: AppTheme.spacingXs) {
+                        taskTitle
+                        metadata
+                    }
+                    Spacer(minLength: AppTheme.spacingSm)
+                    dueBadge
+                    TaskRescheduleMenu(task: task, isSaving: isSaving, onReschedule: onReschedule)
                 }
             }
-
-            Spacer()
-
-            HStack(spacing: 4) {
-                if isOverdue {
-                    Image(systemName: "exclamationmark.circle.fill")
-                        .font(.system(size: 11))
-                        .foregroundColor(ColorAsset.error.color)
-                }
-                Text(DatabaseService.formatRelativeDate(dueDateStr))
-                    .font(.system(size: 11, weight: .semibold))
-                    .foregroundColor(isOverdue ? ColorAsset.error.color : isDueToday ? ColorAsset.primary.color : ColorAsset.textSecondary.color)
-            }
-            .padding(.horizontal, 10)
-            .padding(.vertical, 5)
-            .background(
-                (isOverdue ? ColorAsset.error.color : isDueToday ? ColorAsset.primary.color : ColorAsset.surfaceAlt.color).opacity(0.12)
-            )
-            .cornerRadius(10)
-
-            TaskRescheduleMenu(task: task, isSaving: isSaving, onReschedule: onReschedule)
         }
         .padding(AppTheme.spacingLg)
         .background(ColorAsset.surface.color)
         .cornerRadius(AppTheme.cornerLg)
         .overlay(RoundedRectangle(cornerRadius: AppTheme.cornerLg).stroke(ColorAsset.border.color, lineWidth: 1))
         .shadow(color: Color.black.opacity(0.04), radius: 3, x: 0, y: 1)
+        .accessibilityElement(children: .contain)
+    }
+
+    private var completionButton: some View {
+        Button(action: onComplete) {
+            ZStack {
+                Circle().strokeBorder(ColorAsset.borderDark.color, lineWidth: 2)
+                if isSaving { ProgressView().controlSize(.small) }
+            }
+            .frame(width: 44, height: 44)
+        }
+        .buttonStyle(.plain)
+        .disabled(isSaving)
+        .accessibilityLabel("Complete \(task.title)")
+        .accessibilityHint("Marks this task complete")
+    }
+
+    private var taskTitle: some View {
+        Text(task.title)
+            .font(.subheadline.weight(.semibold))
+            .foregroundColor(ColorAsset.text.color)
+            .fixedSize(horizontal: false, vertical: true)
+    }
+
+    @ViewBuilder
+    private var metadata: some View {
+        ViewThatFits(in: .horizontal) {
+            HStack(spacing: AppTheme.spacingSm) { metadataItems }
+            VStack(alignment: .leading, spacing: AppTheme.spacingSm) { metadataItems }
+        }
+    }
+
+    @ViewBuilder
+    private var metadataItems: some View {
+        HStack(spacing: 4) {
+            Circle()
+                .fill(task.priority.color.color)
+                .frame(width: 6, height: 6)
+                .accessibilityHidden(true)
+            Text(task.priority.label)
+                .foregroundColor(task.priority.color.color)
+        }
+        .font(.caption.weight(.semibold))
+        .padding(.horizontal, 8)
+        .padding(.vertical, 4)
+        .background(task.priority.color.color.opacity(0.12))
+        .cornerRadius(8)
+
+        HStack(spacing: 3) {
+            Image(systemName: "clock")
+                .accessibilityHidden(true)
+            Text("\(task.estimatedMinutes)m")
+                .lineLimit(1)
+                .fixedSize(horizontal: true, vertical: false)
+        }
+        .font(.caption.weight(.medium))
+        .foregroundColor(ColorAsset.textTertiary.color)
+
+        Text("Every \(task.frequencyDays)d")
+            .font(.caption.weight(.medium))
+            .foregroundColor(ColorAsset.textTertiary.color)
+            .lineLimit(1)
+            .fixedSize(horizontal: true, vertical: false)
+    }
+
+    private var dueBadge: some View {
+        HStack(spacing: 4) {
+            if isOverdue {
+                Image(systemName: "exclamationmark.circle.fill")
+                    .accessibilityHidden(true)
+            }
+            Text(DatabaseService.formatRelativeDate(dueDateStr))
+                .lineLimit(1)
+                .minimumScaleFactor(0.85)
+        }
+            .font(.caption.weight(.semibold))
+            .foregroundColor(isOverdue ? ColorAsset.error.color : isDueToday ? ColorAsset.primary.color : ColorAsset.textSecondary.color)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 5)
+            .background(
+                (isOverdue ? ColorAsset.error.color : isDueToday ? ColorAsset.primary.color : ColorAsset.surfaceAlt.color).opacity(0.12)
+            )
+            .cornerRadius(10)
     }
 }
