@@ -1,7 +1,11 @@
+import CloudKit
 import SwiftUI
 
 struct SettingsScreen: View {
     @EnvironmentObject var db: DatabaseService
+    @EnvironmentObject var cloudAccount: CloudAccountService
+    @EnvironmentObject var householdSharing: HouseholdSharingService
+    @EnvironmentObject var cloudTaskSync: CloudTaskSyncService
     @AppStorage("darkModeEnabled") private var darkModeEnabled = false
     @AppStorage("weekStartsMonday") private var weekStartsMonday = true
     @State private var settings: Settings?
@@ -14,6 +18,7 @@ struct SettingsScreen: View {
     @State private var defaultReminderTime = Calendar.current.date(from: DateComponents(hour: 9)) ?? Date()
     @State private var overdueFollowUpsEnabled = false
     @State private var permissionStatus: NotificationPermissionStatus = .notDetermined
+    @State private var showingHouseholdShare = false
 
     var body: some View {
         NavigationStack {
@@ -21,6 +26,7 @@ struct SettingsScreen: View {
                 VStack(spacing: AppTheme.spacingXl) {
                     // Household
                     SettingsSection(title: "Household") {
+                        VStack(spacing: AppTheme.spacingMd) {
                         HStack {
                             SettingIcon(icon: "house.fill", color: ColorAsset.primary.color)
                             VStack(alignment: .leading) {
@@ -55,6 +61,59 @@ struct SettingsScreen: View {
                                     .font(.system(size: 13, weight: .semibold))
                                     .foregroundColor(ColorAsset.primary.color)
                             }
+                        }
+                        Divider()
+                        HStack(alignment: .top, spacing: AppTheme.spacingMd) {
+                            Image(systemName: cloudAccount.status.isAvailable ? "checkmark.icloud.fill" : "exclamationmark.icloud.fill")
+                                .foregroundColor(cloudAccount.status.isAvailable ? ColorAsset.success.color : ColorAsset.warning.color)
+                                .accessibilityHidden(true)
+                            VStack(alignment: .leading, spacing: 3) {
+                                Text(cloudAccount.status.title)
+                                    .font(.body.weight(.semibold))
+                                Text(cloudAccount.status.guidance)
+                                    .font(.footnote)
+                                    .foregroundColor(ColorAsset.textTertiary.color)
+                            }
+                            Spacer()
+                            if !cloudAccount.status.isAvailable && cloudAccount.status != .checking {
+                                Button("Retry") { _Concurrency.Task { await cloudAccount.refresh() } }
+                            }
+                        }
+                        .accessibilityElement(children: .combine)
+                        Divider()
+                        Button {
+                            _Concurrency.Task {
+                                await householdSharing.prepareHousehold(named: settings?.householdName ?? "My Home")
+                                await cloudTaskSync.syncNow()
+                                showingHouseholdShare = householdSharing.share != nil
+                            }
+                        } label: {
+                            HStack {
+                                SettingIcon(icon: "person.badge.plus", color: ColorAsset.primary.color)
+                                VStack(alignment: .leading) {
+                                    Text("Invite People")
+                                        .font(.body.weight(.semibold))
+                                    Text(householdSharing.statusText)
+                                        .font(.footnote)
+                                        .foregroundColor(ColorAsset.textTertiary.color)
+                                }
+                                Spacer()
+                                if householdSharing.state == .preparing { ProgressView() }
+                            }
+                        }
+                        .buttonStyle(.plain)
+                        .disabled(!cloudAccount.status.isAvailable || householdSharing.state == .preparing)
+                        Divider()
+                        HStack {
+                            SettingIcon(icon: "arrow.triangle.2.circlepath.icloud", color: ColorAsset.secondary.color)
+                            VStack(alignment: .leading) {
+                                Text("Shared Task Sync").font(.body.weight(.semibold))
+                                Text(cloudTaskSync.statusText).font(.footnote).foregroundColor(ColorAsset.textTertiary.color)
+                            }
+                            Spacer()
+                            Button("Sync Now") { _Concurrency.Task { await cloudTaskSync.syncNow() } }
+                                .disabled(cloudTaskSync.state == .syncing)
+                        }
                         }
                     }
 
@@ -180,6 +239,14 @@ struct SettingsScreen: View {
             }
         }
         .task { await loadData() }
+        .sheet(isPresented: $showingHouseholdShare) {
+            if let share = householdSharing.share {
+                CloudSharingView(
+                    share: share,
+                    container: CKContainer(identifier: CloudAccountService.containerIdentifier)
+                )
+            }
+        }
     }
 
     private func loadData() async {

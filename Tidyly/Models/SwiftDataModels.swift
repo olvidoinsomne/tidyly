@@ -2,13 +2,13 @@ import Foundation
 import SwiftData
 
 @Model final class StoredRoom {
-    var id: UUID = UUID(); var name: String = ""; var icon: String = "🧹"; var color: String = "#3B82F6"; var sortOrder: Int = 0; var createdAt: Date = Date(); var remindersEnabled: Bool = true
-    init(id: UUID = UUID(), name: String, icon: String, color: String, sortOrder: Int = 0, createdAt: Date = Date(), remindersEnabled: Bool = true) { self.id = id; self.name = name; self.icon = icon; self.color = color; self.sortOrder = sortOrder; self.createdAt = createdAt; self.remindersEnabled = remindersEnabled }
+    var id: UUID = UUID(); var name: String = ""; var icon: String = "🧹"; var color: String = "#3B82F6"; var sortOrder: Int = 0; var createdAt: Date = Date(); var updatedAt: Date = Date(); var remindersEnabled: Bool = true
+    init(id: UUID = UUID(), name: String, icon: String, color: String, sortOrder: Int = 0, createdAt: Date = Date(), updatedAt: Date = Date(), remindersEnabled: Bool = true) { self.id = id; self.name = name; self.icon = icon; self.color = color; self.sortOrder = sortOrder; self.createdAt = createdAt; self.updatedAt = updatedAt; self.remindersEnabled = remindersEnabled }
 }
 
 @Model final class StoredTask {
-    var id: UUID = UUID(); var roomId: UUID = UUID(); var title: String = ""; var frequencyDays: Int = 7; var priority: String = Priority.medium.rawValue; var estimatedMinutes: Int = 10; var lastDoneAt: Date?; var nextDueAt: Date = Date(); var sortOrder: Int = 0; var createdAt: Date = Date(); var remindersEnabled: Bool = true; var reminderHour: Int?; var reminderMinute: Int?
-    init(id: UUID = UUID(), roomId: UUID, title: String, frequencyDays: Int, priority: Priority, estimatedMinutes: Int, lastDoneAt: Date? = nil, nextDueAt: Date, sortOrder: Int = 0, createdAt: Date = Date(), remindersEnabled: Bool = true, reminderHour: Int? = nil, reminderMinute: Int? = nil) { self.id = id; self.roomId = roomId; self.title = title; self.frequencyDays = frequencyDays; self.priority = priority.rawValue; self.estimatedMinutes = estimatedMinutes; self.lastDoneAt = lastDoneAt; self.nextDueAt = nextDueAt; self.sortOrder = sortOrder; self.createdAt = createdAt; self.remindersEnabled = remindersEnabled; self.reminderHour = reminderHour; self.reminderMinute = reminderMinute }
+    var id: UUID = UUID(); var roomId: UUID = UUID(); var title: String = ""; var frequencyDays: Int = 7; var priority: String = Priority.medium.rawValue; var estimatedMinutes: Int = 10; var lastDoneAt: Date?; var nextDueAt: Date = Date(); var sortOrder: Int = 0; var createdAt: Date = Date(); var updatedAt: Date = Date(); var remindersEnabled: Bool = true; var reminderHour: Int?; var reminderMinute: Int?
+    init(id: UUID = UUID(), roomId: UUID, title: String, frequencyDays: Int, priority: Priority, estimatedMinutes: Int, lastDoneAt: Date? = nil, nextDueAt: Date, sortOrder: Int = 0, createdAt: Date = Date(), updatedAt: Date = Date(), remindersEnabled: Bool = true, reminderHour: Int? = nil, reminderMinute: Int? = nil) { self.id = id; self.roomId = roomId; self.title = title; self.frequencyDays = frequencyDays; self.priority = priority.rawValue; self.estimatedMinutes = estimatedMinutes; self.lastDoneAt = lastDoneAt; self.nextDueAt = nextDueAt; self.sortOrder = sortOrder; self.createdAt = createdAt; self.updatedAt = updatedAt; self.remindersEnabled = remindersEnabled; self.reminderHour = reminderHour; self.reminderMinute = reminderMinute }
 }
 
 @Model final class StoredCompletion {

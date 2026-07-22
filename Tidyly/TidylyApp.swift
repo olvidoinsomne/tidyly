@@ -3,7 +3,12 @@ import SwiftData
 
 @main
 struct TidylyApp: App {
+    @Environment(\.scenePhase) private var scenePhase
+    @UIApplicationDelegateAdaptor(CloudShareAppDelegate.self) private var cloudShareAppDelegate
     @StateObject private var db = DatabaseService()
+    @StateObject private var cloudAccount = CloudAccountService()
+    @StateObject private var householdSharing = HouseholdSharingService()
+    @StateObject private var cloudTaskSync = CloudTaskSyncService()
     @AppStorage("darkModeEnabled") private var darkModeEnabled = false
     @State private var selectedTab = 0
 
@@ -43,12 +48,20 @@ struct TidylyApp: App {
                         Label("Settings", systemImage: "gearshape")
                     }
                     .environmentObject(db)
+                    .environmentObject(cloudAccount)
+                    .environmentObject(householdSharing)
+                    .environmentObject(cloudTaskSync)
                     .tag(4)
             }
             .modelContainer(db.modelContainer)
             .tint(ColorAsset.primary.color)
             .preferredColorScheme(darkModeEnabled ? .dark : .light)
-            .task { await db.refreshWidgetSnapshot() }
+            .task {
+                await db.refreshWidgetSnapshot()
+                await cloudAccount.refresh()
+                cloudTaskSync.start(databaseService: db)
+                await cloudTaskSync.syncNow()
+            }
             .alert("Reminder Update Failed", isPresented: Binding(
                 get: { db.notificationError != nil },
                 set: { if !$0 { db.notificationError = nil } }
@@ -59,6 +72,10 @@ struct TidylyApp: App {
             }
             .onOpenURL { url in
                 if url.scheme == "tidyly", url.host == "today" { selectedTab = 0 }
+            }
+            .onChange(of: scenePhase) { _, phase in
+                guard phase == .active else { return }
+                _Concurrency.Task { await cloudTaskSync.syncNow() }
             }
         }
     }

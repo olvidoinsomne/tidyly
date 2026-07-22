@@ -79,27 +79,28 @@ final class DatabaseService: ObservableObject {
             throw error
         }
     }
-    func updateRoom(id: UUID, name: String?, icon: String?, color: String?) async throws { guard let value = try storedRoom(id) else { return }; if let name { value.name = name }; if let icon { value.icon = icon }; if let color { value.color = color }; try context.save(); publishWidgetSnapshot() }
+    func updateRoom(id: UUID, name: String?, icon: String?, color: String?) async throws { guard let value = try storedRoom(id) else { return }; if let name { value.name = name }; if let icon { value.icon = icon }; if let color { value.color = color }; value.updatedAt = Date(); try context.save(); publishWidgetSnapshot() }
     func updateRoomReminders(id: UUID, enabled: Bool) async throws { guard let value = try storedRoom(id) else { return }; value.remindersEnabled = enabled; try context.save(); await refreshNotifications() }
-    func updateRoomOrder(_ ids: [UUID]) async throws { let order = Dictionary(uniqueKeysWithValues: ids.enumerated().map { ($0.element, $0.offset) }); for room in try context.fetch(FetchDescriptor<StoredRoom>()) { if let index = order[room.id] { room.sortOrder = index } }; try context.save() }
+    func updateRoomOrder(_ ids: [UUID]) async throws { let order = Dictionary(uniqueKeysWithValues: ids.enumerated().map { ($0.element, $0.offset) }); let changedAt = Date(); for room in try context.fetch(FetchDescriptor<StoredRoom>()) { if let index = order[room.id], room.sortOrder != index { room.sortOrder = index; room.updatedAt = changedAt } }; try context.save(); notifyCloudDataChanged() }
     // Activity events are immutable snapshots and intentionally survive room deletion.
-    func deleteRoom(id: UUID) async throws { try context.fetch(FetchDescriptor<StoredTask>()).filter { $0.roomId == id }.forEach(context.delete); try context.fetch(FetchDescriptor<StoredCompletion>()).filter { $0.roomId == id }.forEach(context.delete); if let room = try storedRoom(id) { context.delete(room) }; try context.save(); publishWidgetSnapshot() }
+    func deleteRoom(id: UUID) async throws { let tasks = try context.fetch(FetchDescriptor<StoredTask>()).filter { $0.roomId == id }; queueCloudDeletions(tasks.map(\.id), key: "cloud.pendingTaskDeletions"); tasks.forEach(context.delete); try context.fetch(FetchDescriptor<StoredCompletion>()).filter { $0.roomId == id }.forEach(context.delete); if let room = try storedRoom(id) { context.delete(room) }; queueCloudDeletions([id], key: "cloud.pendingRoomDeletions"); try context.save(); publishWidgetSnapshot() }
 
     func fetchAllTasks() async throws -> [Task] { try context.fetch(FetchDescriptor<StoredTask>(sortBy: [SortDescriptor(\.sortOrder)])).map(Self.task) }
     func fetchAllTasksWithRooms() async throws -> [TaskWithRoom] { try await attachRooms(try await fetchAllTasks()).sorted { $0.task.nextDueAt < $1.task.nextDueAt } }
     func fetchTasksForDate(_ date: String) async throws -> [TaskWithRoom] { try await attachRooms(try await fetchAllTasks().filter { Self.dateOnlyFormatter.string(from: $0.nextDueAt) <= date }).sorted { $0.task.nextDueAt < $1.task.nextDueAt } }
     func fetchTasksForWeek(_ start: String) async throws -> [TaskWithRoom] { let end = Self.addDays(start, days: 6); return try await attachRooms(try await fetchAllTasks().filter { let due = Self.dateOnlyFormatter.string(from: $0.nextDueAt); return due >= start && due <= end }).sorted { $0.task.nextDueAt < $1.task.nextDueAt } }
     func createTask(roomId: UUID, title: String, frequencyDays: Int, priority: Priority, estimatedMinutes: Int) async throws -> Task { let next = Self.dateOnlyFormatter.date(from: Self.addDays(Self.todayISO(), days: frequencyDays / 2)) ?? Date(); let existing = try context.fetch(FetchDescriptor<StoredTask>()).filter { $0.roomId == roomId }; let value = StoredTask(roomId: roomId, title: title, frequencyDays: frequencyDays, priority: priority, estimatedMinutes: estimatedMinutes, nextDueAt: next, sortOrder: (existing.map(\.sortOrder).max() ?? -1) + 1); context.insert(value); try context.save(); publishWidgetSnapshot(); return Self.task(value) }
-    func updateTask(id: UUID, title: String?, frequencyDays: Int?, priority: Priority?, estimatedMinutes: Int?, roomId: UUID?) async throws { guard let value = try storedTask(id) else { return }; if let title { value.title = title }; if let frequencyDays { value.frequencyDays = frequencyDays }; if let priority { value.priority = priority.rawValue }; if let estimatedMinutes { value.estimatedMinutes = estimatedMinutes }; if let roomId { value.roomId = roomId }; try context.save(); publishWidgetSnapshot() }
+    func updateTask(id: UUID, title: String?, frequencyDays: Int?, priority: Priority?, estimatedMinutes: Int?, roomId: UUID?) async throws { guard let value = try storedTask(id) else { return }; if let title { value.title = title }; if let frequencyDays { value.frequencyDays = frequencyDays }; if let priority { value.priority = priority.rawValue }; if let estimatedMinutes { value.estimatedMinutes = estimatedMinutes }; if let roomId { value.roomId = roomId }; value.updatedAt = Date(); try context.save(); publishWidgetSnapshot() }
     func updateTaskReminder(id: UUID, enabled: Bool, hour: Int?, minute: Int?) async throws { guard let value = try storedTask(id) else { return }; value.remindersEnabled = enabled; value.reminderHour = hour; value.reminderMinute = minute; try context.save(); await refreshNotifications() }
     // Activity events retain task and room names, so history remains readable after deletion.
-    func deleteTask(id: UUID) async throws { try context.fetch(FetchDescriptor<StoredCompletion>()).filter { $0.taskId == id }.forEach(context.delete); if let task = try storedTask(id) { context.delete(task) }; try context.save(); publishWidgetSnapshot() }
+    func deleteTask(id: UUID) async throws { try context.fetch(FetchDescriptor<StoredCompletion>()).filter { $0.taskId == id }.forEach(context.delete); if let task = try storedTask(id) { context.delete(task) }; queueCloudDeletions([id], key: "cloud.pendingTaskDeletions"); try context.save(); publishWidgetSnapshot() }
     func completeTask(_ task: Task, completedDate: String? = nil) async throws -> Completion {
         let day = Self.dateOnlyFormatter.date(from: completedDate ?? Self.todayISO()) ?? Date()
         guard let stored = try storedTask(task.id) else { throw DatabaseError.taskNotFound(task.id) }
         let roomName = try storedRoom(stored.roomId)?.name ?? "Deleted room"
         stored.lastDoneAt = day
         stored.nextDueAt = Calendar.current.date(byAdding: .day, value: stored.frequencyDays, to: day) ?? day
+        stored.updatedAt = Date()
         let completion = StoredCompletion(taskId: task.id, roomId: task.roomId, completedAt: day)
         context.insert(completion)
         context.insert(activityEvent(for: stored, roomName: roomName, type: .completed, previousDueDate: task.nextDueAt, resultingDueDate: stored.nextDueAt, previousLastDoneAt: task.lastDoneAt, resultingLastDoneAt: day, completionId: completion.id))
@@ -122,6 +123,7 @@ final class DatabaseService: ObservableObject {
         context.delete(completion)
         task.lastDoneAt = taskBeforeCompletion.lastDoneAt
         task.nextDueAt = taskBeforeCompletion.nextDueAt
+        task.updatedAt = Date()
         context.insert(activityEvent(for: task, roomName: roomName, type: .completionUndone, previousDueDate: completedDueDate, resultingDueDate: task.nextDueAt, previousLastDoneAt: completedLastDoneAt, resultingLastDoneAt: task.lastDoneAt, completionId: completion.id))
         do {
             try context.save()
@@ -134,6 +136,7 @@ final class DatabaseService: ObservableObject {
         guard let stored = try storedTask(task.id) else { throw DatabaseError.taskNotFound(task.id) }
         let roomName = try storedRoom(stored.roomId)?.name ?? "Deleted room"
         stored.nextDueAt = action.nextDueDate(for: task)
+        stored.updatedAt = Date()
         let eventType: ActivityEventType
         switch action {
         case .tomorrow: eventType = .postponed
@@ -156,6 +159,7 @@ final class DatabaseService: ObservableObject {
         let changedLastDoneAt = stored.lastDoneAt
         stored.lastDoneAt = taskBeforeRescheduling.lastDoneAt
         stored.nextDueAt = taskBeforeRescheduling.nextDueAt
+        stored.updatedAt = Date()
         context.insert(activityEvent(for: stored, roomName: roomName, type: .rescheduleUndone, previousDueDate: changedDueDate, resultingDueDate: stored.nextDueAt, previousLastDoneAt: changedLastDoneAt, resultingLastDoneAt: stored.lastDoneAt))
         do {
             try context.save()
@@ -171,6 +175,57 @@ final class DatabaseService: ObservableObject {
 
     func fetchActivityEvents() async throws -> [ActivityEvent] {
         try context.fetch(FetchDescriptor<StoredActivityEvent>(sortBy: [SortDescriptor(\.timestamp, order: .reverse)])).map(Self.activityEvent)
+    }
+
+    func cloudSyncSnapshot() throws -> CloudTaskSnapshot {
+        CloudTaskSnapshot(
+            rooms: try context.fetch(FetchDescriptor<StoredRoom>()).map {
+                CloudRoomData(id: $0.id, name: $0.name, icon: $0.icon, color: $0.color, sortOrder: $0.sortOrder, createdAt: $0.createdAt, updatedAt: $0.updatedAt)
+            },
+            tasks: try context.fetch(FetchDescriptor<StoredTask>()).map {
+                CloudTaskData(id: $0.id, roomId: $0.roomId, title: $0.title, frequencyDays: $0.frequencyDays, priority: $0.priority, estimatedMinutes: $0.estimatedMinutes, lastDoneAt: $0.lastDoneAt, nextDueAt: $0.nextDueAt, sortOrder: $0.sortOrder, createdAt: $0.createdAt, updatedAt: $0.updatedAt)
+            }
+        )
+    }
+
+    func hasLocalHouseholdContent() throws -> Bool {
+        try context.fetchCount(FetchDescriptor<StoredRoom>()) > 0 || context.fetchCount(FetchDescriptor<StoredTask>()) > 0
+    }
+
+    func applyCloudSnapshot(_ snapshot: CloudTaskSnapshot, deletedRoomIDs: Set<UUID> = [], deletedTaskIDs: Set<UUID> = []) throws {
+        var changed = false
+        let localRooms = Dictionary(uniqueKeysWithValues: try context.fetch(FetchDescriptor<StoredRoom>()).map { ($0.id, $0) })
+        for id in deletedRoomIDs { if let room = localRooms[id] { context.delete(room); changed = true } }
+        for remote in snapshot.rooms {
+            if let local = localRooms[remote.id] {
+                guard remote.updatedAt > local.updatedAt else { continue }
+                local.name = remote.name; local.icon = remote.icon; local.color = remote.color
+                local.sortOrder = remote.sortOrder; local.createdAt = remote.createdAt; local.updatedAt = remote.updatedAt
+                changed = true
+            } else {
+                context.insert(StoredRoom(id: remote.id, name: remote.name, icon: remote.icon, color: remote.color, sortOrder: remote.sortOrder, createdAt: remote.createdAt, updatedAt: remote.updatedAt))
+                changed = true
+            }
+        }
+        let localTasks = Dictionary(uniqueKeysWithValues: try context.fetch(FetchDescriptor<StoredTask>()).map { ($0.id, $0) })
+        for id in deletedTaskIDs { if let task = localTasks[id] { context.delete(task); changed = true } }
+        for remote in snapshot.tasks {
+            if let local = localTasks[remote.id] {
+                guard remote.updatedAt > local.updatedAt else { continue }
+                local.roomId = remote.roomId; local.title = remote.title; local.frequencyDays = remote.frequencyDays
+                local.priority = remote.priority; local.estimatedMinutes = remote.estimatedMinutes
+                local.lastDoneAt = remote.lastDoneAt; local.nextDueAt = remote.nextDueAt
+                local.sortOrder = remote.sortOrder; local.createdAt = remote.createdAt; local.updatedAt = remote.updatedAt
+                changed = true
+            } else {
+                context.insert(StoredTask(id: remote.id, roomId: remote.roomId, title: remote.title, frequencyDays: remote.frequencyDays, priority: Priority(rawValue: remote.priority) ?? .medium, estimatedMinutes: remote.estimatedMinutes, lastDoneAt: remote.lastDoneAt, nextDueAt: remote.nextDueAt, sortOrder: remote.sortOrder, createdAt: remote.createdAt, updatedAt: remote.updatedAt))
+                changed = true
+            }
+        }
+        guard changed else { return }
+        try context.save()
+        publishWidgetSnapshot()
+        NotificationCenter.default.post(name: .taskScheduleDidChange, object: nil)
     }
 
     func refreshWidgetSnapshot() async { publishWidgetSnapshot() }
@@ -213,10 +268,21 @@ final class DatabaseService: ObservableObject {
                 tasks: widgetTasks
             ))
             WidgetCenter.shared.reloadTimelines(ofKind: "TidylyTodayWidget")
+            notifyCloudDataChanged()
             _Concurrency.Task { await refreshNotifications() }
         } catch {
             print("Widget snapshot error: \(error)")
         }
+    }
+
+    private func notifyCloudDataChanged() {
+        NotificationCenter.default.post(name: .localCloudDataDidChange, object: nil)
+    }
+
+    private func queueCloudDeletions(_ ids: [UUID], key: String) {
+        var values = Set(UserDefaults.standard.stringArray(forKey: key) ?? [])
+        values.formUnion(ids.map(\.uuidString))
+        UserDefaults.standard.set(Array(values), forKey: key)
     }
 
     func fetchSettings() async throws -> Settings { if let value = try context.fetch(FetchDescriptor<StoredSettings>()).first { return Self.settings(value) }; let value = StoredSettings(); context.insert(value); try context.save(); return Self.settings(value) }
