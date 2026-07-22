@@ -141,6 +141,7 @@
 		B274E348F39A92986FB63B36 /* TaskSuggestionCatalog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TaskSuggestionCatalog.swift; sourceTree = "<group>"; };
 		B36508034700A1C7652C5839 /* CloudShareAppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CloudShareAppDelegate.swift; sourceTree = "<group>"; };
 		B3BB862A5339C5E41C91FDC7 /* ProgressRing.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProgressRing.swift; sourceTree = "<group>"; };
+		B4D50D403AAD06C29D78A326 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		CB7A34221C60A2CF5FA6705B /* StatsScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatsScreen.swift; sourceTree = "<group>"; };
 		E0A383BAF8524B570F3FB6F5 /* Tidyly.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Tidyly.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		E44DCEFBAE00DFC4E8C36B2E /* CloudAccountService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CloudAccountService.swift; sourceTree = "<group>"; };
@@ -224,6 +225,7 @@
 			isa = PBXGroup;
 			children = (
 				A208D29EF95DD408840E656C /* Assets.xcassets */,
+				B4D50D403AAD06C29D78A326 /* Info.plist */,
 				56540A6B0CDEF726B3488311 /* Tidyly.entitlements */,
 				572AFED675A083DBA923F783 /* TidylyApp.swift */,
 				056D95D3DE1A2AD8015A7A23 /* Components */,
@@ -558,7 +560,7 @@
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 5;
+				CURRENT_PROJECT_VERSION = 6;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				ENABLE_NS_ASSERTIONS = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
@@ -614,6 +616,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
 				DEVELOPMENT_TEAM = VS4RFZ5734;
+				INFOPLIST_FILE = Tidyly/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = Tidyly;
 				INFOPLIST_KEY_CFBundleURLTypes = "[{\"CFBundleURLName\":\"com.tidyly.jonesweb.club\",\"CFBundleURLSchemes\":[\"tidyly\"]}]";
 				INFOPLIST_KEY_CKSharingSupported = YES;
@@ -646,6 +649,7 @@
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
 				DEVELOPMENT_TEAM = VS4RFZ5734;
+				INFOPLIST_FILE = Tidyly/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = Tidyly;
 				INFOPLIST_KEY_CFBundleURLTypes = "[{\"CFBundleURLName\":\"com.tidyly.jonesweb.club\",\"CFBundleURLSchemes\":[\"tidyly\"]}]";
 				INFOPLIST_KEY_CKSharingSupported = YES;
@@ -705,7 +709,7 @@
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 5;
+				CURRENT_PROJECT_VERSION = 6;
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;
@@ -746,6 +750,7 @@
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
 				DEVELOPMENT_TEAM = VS4RFZ5734;
+				INFOPLIST_FILE = Tidyly/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = Tidyly;
 				INFOPLIST_KEY_CFBundleURLTypes = "[{\"CFBundleURLName\":\"com.tidyly.jonesweb.club\",\"CFBundleURLSchemes\":[\"tidyly\"]}]";
 				INFOPLIST_KEY_CKSharingSupported = YES;
@@ -779,6 +784,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
 				DEVELOPMENT_TEAM = VS4RFZ5734;
+				INFOPLIST_FILE = Tidyly/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = Tidyly;
 				INFOPLIST_KEY_CFBundleURLTypes = "[{\"CFBundleURLName\":\"com.tidyly.jonesweb.club\",\"CFBundleURLSchemes\":[\"tidyly\"]}]";
 				INFOPLIST_KEY_CKSharingSupported = YES;

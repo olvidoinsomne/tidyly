@@ -9,13 +9,30 @@ settings:
   base:
     SWIFT_VERSION: "5.9"
     MARKETING_VERSION: "1.0.0"
-    CURRENT_PROJECT_VERSION: "5"
+    CURRENT_PROJECT_VERSION: "6"
     GENERATE_INFOPLIST_FILE: YES
     INFOPLIST_KEY_NSHumanReadableCopyright: "Copyright (c) 2026 Tidyly. All rights reserved."
 targets:
   Tidyly:
     type: application
     platform: [iOS, macOS]
+    info:
+      path: Tidyly/Info.plist
+      properties:
+        CFBundleDisplayName: Tidyly
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        CKSharingSupported: true
+        ITSAppUsesNonExemptEncryption: false
+        LSApplicationCategoryType: public.app-category.lifestyle
+        NSHumanReadableCopyright: "Copyright (c) 2026 Tidyly. All rights reserved."
+        CFBundleURLTypes:
+          - CFBundleURLName: com.tidyly.jonesweb.club
+            CFBundleURLSchemes:
+              - tidyly
+        UIBackgroundModes:
+          - remote-notification
+        UILaunchScreen: {}
     sources:
       - path: Tidyly
         excludes:
