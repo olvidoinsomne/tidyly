@@ -14,18 +14,25 @@ struct TaskEditorSheet: View {
     @State private var priority: Priority = .medium
     @State private var minutes: Int = 10
     @State private var selectedRoomId: UUID
+    @State private var isGeneralHouseholdTask: Bool
     @State private var saving = false
     @State private var showDeleteConfirm = false
     @State private var remindersEnabled = true
     @State private var usesCustomReminderTime = false
     @State private var reminderTime = Calendar.current.date(from: DateComponents(hour: 9)) ?? Date()
+    @State private var existingTasks: [Task] = []
+    @State private var pendingSuggestion: TaskSuggestion?
 
     private var selectedRoom: Room {
         rooms.first(where: { $0.id == selectedRoomId }) ?? room
     }
 
     private var suggestions: [TaskSuggestion] {
-        TaskSuggestionCatalog.suggestions(for: selectedRoom.name)
+        let candidates = isGeneralHouseholdTask ? TaskSuggestionCatalog.householdSuggestions : TaskSuggestionCatalog.suggestions(for: selectedRoom.name)
+        let existingTitles = Set(existingTasks.filter {
+            $0.id != task?.id && (isGeneralHouseholdTask ? $0.isGeneralHouseholdTask : (!$0.isGeneralHouseholdTask && $0.roomId == selectedRoomId))
+        }.map { $0.title.lowercased() })
+        return candidates.filter { !existingTitles.contains($0.title.lowercased()) }
     }
 
     init(room: Room, task: Task?, rooms: [Room], onSaved: @escaping () -> Void) {
@@ -34,6 +41,7 @@ struct TaskEditorSheet: View {
         self.rooms = rooms
         self.onSaved = onSaved
         _selectedRoomId = State(initialValue: task?.roomId ?? room.id)
+        _isGeneralHouseholdTask = State(initialValue: task?.isGeneralHouseholdTask ?? (room.id == Task.generalHouseholdRoomId))
     }
 
     var body: some View {
@@ -54,21 +62,29 @@ struct TaskEditorSheet: View {
                         Toggle("Remind me", isOn: $remindersEnabled)
                             .font(.body.weight(.semibold))
                         if remindersEnabled {
-                            Toggle("Use a custom time", isOn: $usesCustomReminderTime)
+                            Picker("Reminder Time", selection: $usesCustomReminderTime) {
+                                Text("Use Default Time").tag(false)
+                                Text("Custom Time").tag(true)
+                            }
+                            .pickerStyle(.segmented)
                             if usesCustomReminderTime {
                                 DatePicker("Reminder time", selection: $reminderTime, displayedComponents: .hourAndMinute)
                             }
                         }
+                        Text(reminderStatusText)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .accessibilityLabel("Effective reminder configuration: \(reminderStatusText)")
                     }
                     .padding(AppTheme.spacingLg)
                     .background(ColorAsset.surfaceAlt.color)
                     .cornerRadius(AppTheme.cornerMd)
 
-                    if task == nil {
+                    if !suggestions.isEmpty {
                         VStack(alignment: .leading, spacing: AppTheme.spacingSm) {
                             HStack {
                                 VStack(alignment: .leading, spacing: 2) {
-                                    Text("Suggested for \(selectedRoom.name)")
+                                    Text(isGeneralHouseholdTask ? "Suggested for your household" : "Suggested for \(selectedRoom.name)")
                                         .font(.system(size: 13, weight: .semibold))
                                         .foregroundColor(ColorAsset.textSecondary.color)
                                     Text("Tap a task to use its recommended schedule.")
@@ -86,7 +102,7 @@ struct TaskEditorSheet: View {
                             FlowLayout(spacing: AppTheme.spacingSm) {
                                 ForEach(suggestions) { suggestion in
                                     Button {
-                                        apply(suggestion)
+                                        choose(suggestion)
                                     } label: {
                                         Text(suggestion.title)
                                             .font(.system(size: 13, weight: .medium))
@@ -106,26 +122,38 @@ struct TaskEditorSheet: View {
                     // Room
                     if !rooms.isEmpty {
                         VStack(alignment: .leading, spacing: AppTheme.spacingSm) {
-                            Text("Room")
+                            Text("Task Location")
                                 .font(.system(size: 13, weight: .semibold))
                                 .foregroundColor(ColorAsset.textSecondary.color)
                             ScrollView(.horizontal, showsIndicators: false) {
                                 HStack(spacing: AppTheme.spacingSm) {
+                                    HStack(spacing: 6) {
+                                        Text("🏠")
+                                        Text("Household")
+                                            .font(.system(size: 13, weight: .semibold))
+                                            .foregroundColor(isGeneralHouseholdTask ? .white : ColorAsset.textSecondary.color)
+                                    }
+                                    .padding(.horizontal, 14)
+                                    .padding(.vertical, 10)
+                                    .background(isGeneralHouseholdTask ? ColorAsset.primary.color : ColorAsset.surfaceAlt.color)
+                                    .cornerRadius(999)
+                                    .onTapGesture { isGeneralHouseholdTask = true }
+                                    .accessibilityLabel("General household task")
                                     ForEach(rooms) { r in
                                         HStack(spacing: 6) {
                                             Text(r.icon)
                                                 .font(.system(size: 16))
                                             Text(r.name)
                                                 .font(.system(size: 13, weight: .semibold))
-                                                .foregroundColor(selectedRoomId == r.id ? .white : ColorAsset.textSecondary.color)
+                                                .foregroundColor(!isGeneralHouseholdTask && selectedRoomId == r.id ? .white : ColorAsset.textSecondary.color)
                                         }
                                         .padding(.horizontal, 14)
                                         .padding(.vertical, 10)
                                         .background(
-                                            selectedRoomId == r.id ? Color(hex: r.color) : ColorAsset.surfaceAlt.color
+                                            !isGeneralHouseholdTask && selectedRoomId == r.id ? Color(hex: r.color) : ColorAsset.surfaceAlt.color
                                         )
                                         .cornerRadius(999)
-                                        .onTapGesture { selectedRoomId = r.id }
+                                        .onTapGesture { selectedRoomId = r.id; isGeneralHouseholdTask = false }
                                     }
                                 }
                             }
@@ -285,11 +313,20 @@ struct TaskEditorSheet: View {
                 priority = task.priority
                 minutes = task.estimatedMinutes
                 selectedRoomId = task.roomId
+                isGeneralHouseholdTask = task.isGeneralHouseholdTask
                 remindersEnabled = task.remindersEnabled
                 usesCustomReminderTime = task.reminderHour != nil
                 if let hour = task.reminderHour { reminderTime = Calendar.current.date(from: DateComponents(hour: hour, minute: task.reminderMinute ?? 0)) ?? reminderTime }
             }
         }
+        .task { existingTasks = (try? await db.fetchAllTasks()) ?? [] }
+        .alert("Replace Current Values?", isPresented: Binding(get: { pendingSuggestion != nil }, set: { if !$0 { pendingSuggestion = nil } })) {
+            Button("Cancel", role: .cancel) { pendingSuggestion = nil }
+            Button("Use Suggestion") {
+                if let pendingSuggestion { apply(pendingSuggestion) }
+                pendingSuggestion = nil
+            }
+        } message: { Text("This will replace the task name, recurrence, priority, and estimated time you entered.") }
     }
 
     private func save() async {
@@ -304,13 +341,15 @@ struct TaskEditorSheet: View {
                     frequencyDays: frequency,
                     priority: priority,
                     estimatedMinutes: minutes,
-                    roomId: selectedRoomId
+                    roomId: selectedRoomId,
+                    isGeneralHouseholdTask: isGeneralHouseholdTask
                 )
                 let time = Calendar.current.dateComponents([.hour, .minute], from: reminderTime)
                 try await db.updateTaskReminder(id: task.id, enabled: remindersEnabled, hour: usesCustomReminderTime ? time.hour : nil, minute: usesCustomReminderTime ? time.minute : nil)
             } else {
                 let newTask = try await db.createTask(
                     roomId: selectedRoomId,
+                    isGeneralHouseholdTask: isGeneralHouseholdTask,
                     title: title,
                     frequencyDays: frequency,
                     priority: priority,
@@ -333,18 +372,30 @@ struct TaskEditorSheet: View {
         minutes = suggestion.estimatedMinutes
     }
 
+    private func choose(_ suggestion: TaskSuggestion) {
+        if title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { apply(suggestion) }
+        else { pendingSuggestion = suggestion }
+    }
+
+    private var reminderStatusText: String {
+        guard remindersEnabled else { return "Reminders are off for this task." }
+        if !isGeneralHouseholdTask && !selectedRoom.remindersEnabled { return "Reminders are suppressed because this room's reminders are off." }
+        return usesCustomReminderTime ? "This task uses its custom reminder time." : "This task uses the household default reminder time."
+    }
+
     private func addAllSuggestions() async {
         saving = true
         defer { saving = false }
         do {
             let existingTitles = Set(
                 try await db.fetchAllTasks()
-                    .filter { $0.roomId == selectedRoomId }
+                    .filter { isGeneralHouseholdTask ? $0.isGeneralHouseholdTask : (!$0.isGeneralHouseholdTask && $0.roomId == selectedRoomId) }
                     .map { $0.title.lowercased() }
             )
             for suggestion in suggestions where !existingTitles.contains(suggestion.title.lowercased()) {
                 _ = try await db.createTask(
                     roomId: selectedRoomId,
+                    isGeneralHouseholdTask: isGeneralHouseholdTask,
                     title: suggestion.title,
                     frequencyDays: suggestion.frequencyDays,
                     priority: suggestion.priority,

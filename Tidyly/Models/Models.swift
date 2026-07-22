@@ -76,8 +76,10 @@ struct Room: Codable, Identifiable, Hashable {
 }
 
 struct Task: Codable, Identifiable, Hashable {
+    static let generalHouseholdRoomId = UUID(uuidString: "00000000-0000-0000-0000-000000000001")!
     let id: UUID
     var roomId: UUID
+    var isGeneralHouseholdTask: Bool = false
     var title: String
     var frequencyDays: Int
     var priority: Priority
@@ -91,7 +93,7 @@ struct Task: Codable, Identifiable, Hashable {
     var reminderMinute: Int?
 
     enum CodingKeys: String, CodingKey {
-        case id, title, priority, icon, remindersEnabled, reminderHour, reminderMinute
+        case id, title, priority, icon, remindersEnabled, reminderHour, reminderMinute, isGeneralHouseholdTask
         case roomId = "room_id"
         case frequencyDays = "frequency_days"
         case estimatedMinutes = "estimated_minutes"
@@ -105,6 +107,7 @@ struct Task: Codable, Identifiable, Hashable {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         id = try c.decode(UUID.self, forKey: .id)
         roomId = try c.decode(UUID.self, forKey: .roomId)
+        isGeneralHouseholdTask = try c.decodeIfPresent(Bool.self, forKey: .isGeneralHouseholdTask) ?? false
         title = try c.decode(String.self, forKey: .title)
         frequencyDays = try c.decode(Int.self, forKey: .frequencyDays)
         estimatedMinutes = try c.decode(Int.self, forKey: .estimatedMinutes)
@@ -141,6 +144,7 @@ struct Task: Codable, Identifiable, Hashable {
         var c = encoder.container(keyedBy: CodingKeys.self)
         try c.encode(id, forKey: .id)
         try c.encode(roomId, forKey: .roomId)
+        try c.encode(isGeneralHouseholdTask, forKey: .isGeneralHouseholdTask)
         try c.encode(title, forKey: .title)
         try c.encode(frequencyDays, forKey: .frequencyDays)
         try c.encode(priority.rawValue, forKey: .priority)
@@ -154,9 +158,10 @@ struct Task: Codable, Identifiable, Hashable {
         try c.encodeIfPresent(reminderMinute, forKey: .reminderMinute)
     }
 
-    init(id: UUID = UUID(), roomId: UUID, title: String, frequencyDays: Int, priority: Priority, estimatedMinutes: Int, lastDoneAt: Date? = nil, nextDueAt: Date, sortOrder: Int = 0, createdAt: Date = Date(), remindersEnabled: Bool = true, reminderHour: Int? = nil, reminderMinute: Int? = nil) {
+    init(id: UUID = UUID(), roomId: UUID, isGeneralHouseholdTask: Bool = false, title: String, frequencyDays: Int, priority: Priority, estimatedMinutes: Int, lastDoneAt: Date? = nil, nextDueAt: Date, sortOrder: Int = 0, createdAt: Date = Date(), remindersEnabled: Bool = true, reminderHour: Int? = nil, reminderMinute: Int? = nil) {
         self.id = id
         self.roomId = roomId
+        self.isGeneralHouseholdTask = isGeneralHouseholdTask
         self.title = title
         self.frequencyDays = frequencyDays
         self.priority = priority
@@ -230,7 +235,7 @@ enum ActivityEventType: String, Codable, CaseIterable {
     case rescheduleUndone
 }
 
-struct ActivityEvent: Identifiable, Hashable {
+struct ActivityEvent: Codable, Identifiable, Hashable {
     let id: UUID
     let taskId: UUID
     let roomId: UUID

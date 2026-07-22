@@ -1,5 +1,6 @@
 import CloudKit
 import SwiftUI
+import UniformTypeIdentifiers
 
 struct SettingsScreen: View {
     @EnvironmentObject var db: DatabaseService
@@ -19,6 +20,12 @@ struct SettingsScreen: View {
     @State private var overdueFollowUpsEnabled = false
     @State private var permissionStatus: NotificationPermissionStatus = .notDetermined
     @State private var showingHouseholdShare = false
+    @State private var exportDocument: TidylyBackupDocument?
+    @State private var showingExporter = false
+    @State private var showingImporter = false
+    @State private var pendingImport: TidylyBackup?
+    @State private var showingImportConfirmation = false
+    @State private var dataTransferStatus: String?
 
     var body: some View {
         NavigationStack {
@@ -188,6 +195,19 @@ struct SettingsScreen: View {
                                 _Concurrency.Task { await exportData() }
                             }
                             Divider().padding(.leading, 56)
+                            ButtonRow(icon: "square.and.arrow.up", color: ColorAsset.primary.color, label: "Import Data") {
+                                showingImporter = true
+                            }
+                            Divider().padding(.leading, 56)
+                            if let dataTransferStatus {
+                                Text(dataTransferStatus)
+                                    .font(.footnote)
+                                    .foregroundColor(ColorAsset.textSecondary.color)
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                                    .padding(.vertical, AppTheme.spacingSm)
+                                    .accessibilityLabel(dataTransferStatus)
+                                Divider().padding(.leading, 56)
+                            }
                             ButtonRow(icon: "trash", color: ColorAsset.error.color, label: "Clear All Data", labelColor: ColorAsset.error.color) {
                                 showClearConfirm = true
                             }
@@ -246,6 +266,35 @@ struct SettingsScreen: View {
                     container: CKContainer(identifier: CloudAccountService.containerIdentifier)
                 )
             }
+        }
+        .fileExporter(
+            isPresented: $showingExporter,
+            document: exportDocument,
+            contentType: .json,
+            defaultFilename: backupFilename
+        ) { result in
+            switch result {
+            case .success:
+                dataTransferStatus = "Backup saved successfully."
+            case .failure(let error):
+                dataTransferStatus = "Export failed: \(error.localizedDescription)"
+            }
+            exportDocument = nil
+        }
+        .fileImporter(isPresented: $showingImporter, allowedContentTypes: [.json]) { result in
+            importFile(result)
+        }
+        .confirmationDialog(
+            "Replace Local Data?",
+            isPresented: $showingImportConfirmation,
+            titleVisibility: .visible
+        ) {
+            Button("Import and Replace", role: .destructive) {
+                _Concurrency.Task { await performImport() }
+            }
+            Button("Cancel", role: .cancel) { pendingImport = nil }
+        } message: {
+            Text("Importing replaces this device’s rooms, tasks, completions, activity, and settings with the selected backup. This cannot be undone.")
         }
     }
 
@@ -359,22 +408,60 @@ struct SettingsScreen: View {
         do {
             async let roomsResult = db.fetchRooms()
             async let tasksResult = db.fetchAllTasks()
-            async let completionsResult = db.fetchCompletionsInRange(startDate: DatabaseService.addDays(DatabaseService.todayISO(), days: -365), endDate: DatabaseService.todayISO())
-            let (rooms, tasks, completions) = try await (roomsResult, tasksResult, completionsResult)
-            let data: [String: Any] = [
-                "rooms": rooms.map { ["id": $0.id.uuidString, "name": $0.name, "icon": $0.icon, "color": $0.color] },
-                "tasks": tasks.map { ["id": $0.id.uuidString, "title": $0.title, "frequency_days": $0.frequencyDays] },
-                "completions": completions.map { ["id": $0.id.uuidString, "task_id": $0.taskId.uuidString] },
-                "exportDate": ISO8601DateFormatter().string(from: Date())
-            ]
-            if let json = try? JSONSerialization.data(withJSONObject: data, options: .prettyPrinted),
-               let jsonStr = String(data: json, encoding: .utf8) {
-                let url = FileManager.default.temporaryDirectory.appendingPathComponent("tidyly-export.json")
-                try jsonStr.write(to: url, atomically: true, encoding: .utf8)
-                print("Exported to \(url.path)")
-            }
+            async let activityResult = db.fetchActivityEvents()
+            async let settingsResult = db.fetchSettings()
+            let (rooms, tasks, activity, exportedSettings) = try await (roomsResult, tasksResult, activityResult, settingsResult)
+            let backup = TidylyBackup(
+                formatVersion: TidylyBackup.currentVersion,
+                exportedAt: Date(),
+                rooms: rooms,
+                tasks: tasks,
+                completions: try db.fetchAllCompletions(),
+                activityEvents: activity,
+                settings: exportedSettings
+            )
+            exportDocument = TidylyBackupDocument(backup: backup)
+            dataTransferStatus = "Backup ready. Choose iCloud Drive or another Files location."
+            showingExporter = true
         } catch {
-            print("Export error: \(error)")
+            dataTransferStatus = "Export failed: \(error.localizedDescription)"
+        }
+    }
+
+    private var backupFilename: String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM-dd"
+        return "Tidyly-Backup-\(formatter.string(from: Date()))"
+    }
+
+    private func importFile(_ result: Result<URL, Error>) {
+        do {
+            let url = try result.get()
+            let accessed = url.startAccessingSecurityScopedResource()
+            defer { if accessed { url.stopAccessingSecurityScopedResource() } }
+            let data = try Data(contentsOf: url)
+            let backup = try TidylyBackupDocument.decoder.decode(TidylyBackup.self, from: data)
+            guard backup.formatVersion == TidylyBackup.currentVersion else {
+                throw CocoaError(.fileReadUnknown)
+            }
+            pendingImport = backup
+            showingImportConfirmation = true
+            dataTransferStatus = "Backup validated. Confirm import to continue."
+        } catch {
+            pendingImport = nil
+            dataTransferStatus = "Import failed: the selected file is not a valid Tidyly backup."
+        }
+    }
+
+    private func performImport() async {
+        guard let pendingImport else { return }
+        do {
+            try await db.replaceData(with: pendingImport)
+            self.pendingImport = nil
+            dataTransferStatus = "Import complete: \(pendingImport.rooms.count) rooms and \(pendingImport.tasks.count) tasks restored."
+            await loadData()
+        } catch {
+            dataTransferStatus = "Import failed: \(error.localizedDescription)"
         }
     }
 }

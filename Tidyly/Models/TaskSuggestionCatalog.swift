@@ -9,7 +9,35 @@ struct TaskSuggestion: Identifiable, Hashable {
     var id: String { title }
 }
 
+struct StarterRoomPlan: Identifiable, Hashable {
+    let name: String
+    let icon: String
+    let color: String
+    let tasks: [TaskSuggestion]
+    var id: String { name }
+}
+
 enum TaskSuggestionCatalog {
+    static let starterRooms: [StarterRoomPlan] = [
+        StarterRoomPlan(name: "Kitchen", icon: "🍳", color: "#F59E0B", tasks: Array(kitchen.prefix(3))),
+        StarterRoomPlan(name: "Primary Bedroom", icon: "🛏️", color: "#8B5CF6", tasks: Array(bedroom.prefix(3))),
+        StarterRoomPlan(name: "Bathroom", icon: "🛁", color: "#06B6D4", tasks: Array(bathroom.prefix(3))),
+        StarterRoomPlan(name: "Living Room", icon: "🛋️", color: "#3B82F6", tasks: Array(livingRoom.prefix(3))),
+        StarterRoomPlan(name: "Dining Room", icon: "🍽️", color: "#EF4444", tasks: Array(diningRoom.prefix(3))),
+        StarterRoomPlan(name: "Laundry Room", icon: "🧺", color: "#10B981", tasks: Array(laundry.prefix(3))),
+        StarterRoomPlan(name: "Home Office", icon: "💻", color: "#6366F1", tasks: Array(office.prefix(3))),
+        StarterRoomPlan(name: "Garage", icon: "🚗", color: "#64748B", tasks: Array(garage.prefix(3)))
+    ]
+
+    static let householdSuggestions = [
+        TaskSuggestion(title: "Take out trash", frequencyDays: 7, priority: .high, estimatedMinutes: 10),
+        TaskSuggestion(title: "Vacuum hallways", frequencyDays: 7, priority: .medium, estimatedMinutes: 20),
+        TaskSuggestion(title: "Change HVAC filter", frequencyDays: 90, priority: .medium, estimatedMinutes: 15),
+        TaskSuggestion(title: "Test smoke detectors", frequencyDays: 30, priority: .high, estimatedMinutes: 10),
+        TaskSuggestion(title: "Clean entryway", frequencyDays: 7, priority: .medium, estimatedMinutes: 15),
+        TaskSuggestion(title: "Water household plants", frequencyDays: 7, priority: .medium, estimatedMinutes: 15)
+    ]
+
     static func suggestions(for roomName: String) -> [TaskSuggestion] {
         let name = roomName.lowercased()
 

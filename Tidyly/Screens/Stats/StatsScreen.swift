@@ -60,9 +60,10 @@ struct StatsScreen: View {
     private var maxBarCount: Int { max(weekBarData.map { $0.count }.max() ?? 0, 1) }
 
     private var roomStats: [(room: Room, completions: Int)] {
-        rooms.map { room in
+        let household = Room(id: Task.generalHouseholdRoomId, name: "Household", icon: "🏠", color: "#3B82F6", sortOrder: -1, createdAt: .distantPast)
+        return (rooms + [household]).map { room in
             (room, completions.filter { $0.roomId == room.id }.count)
-        }.sorted { $0.completions > $1.completions }
+        }.filter { $0.completions > 0 }.sorted { $0.completions > $1.completions }
     }
 
     private var maxRoomCompletions: Int { max(roomStats.map { $0.completions }.max() ?? 0, 1) }

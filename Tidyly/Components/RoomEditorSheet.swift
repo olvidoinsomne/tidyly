@@ -15,6 +15,13 @@ struct RoomEditorSheet: View {
     @State private var saveError: String?
     @State private var selectedSuggestionIds: Set<String> = []
     @State private var remindersEnabled = true
+    @State private var existingRoomNames: Set<String> = []
+
+    private let roomNameSuggestions = ["Kitchen", "Primary Bedroom", "Bathroom", "Living Room", "Dining Room", "Laundry Room", "Home Office", "Entryway", "Garage", "Patio"]
+
+    private var availableRoomNames: [String] {
+        roomNameSuggestions.filter { !existingRoomNames.contains($0.lowercased()) || room?.name.caseInsensitiveCompare($0) == .orderedSame }
+    }
 
     private let pickerColumns = [
         GridItem(.adaptive(minimum: 44, maximum: 52), spacing: AppTheme.spacingSm)
@@ -39,6 +46,16 @@ struct RoomEditorSheet: View {
                             .foregroundColor(ColorAsset.textSecondary.color)
                         TextField("e.g. Garage", text: $name)
                             .textFieldStyle(.roundedBorder)
+                        if room == nil && !availableRoomNames.isEmpty {
+                            FlowLayout(spacing: AppTheme.spacingSm) {
+                                ForEach(availableRoomNames, id: \.self) { suggestion in
+                                    Button(suggestion) { name = suggestion }
+                                        .buttonStyle(.bordered)
+                                        .controlSize(.small)
+                                        .accessibilityHint("Fills the editable room name")
+                                }
+                            }
+                        }
                     }
                     .padding(.top, AppTheme.spacingMd)
 
@@ -159,6 +176,11 @@ struct RoomEditorSheet: View {
                 Button("OK", role: .cancel) { saveError = nil }
             } message: {
                 Text(saveError ?? "Please try again.")
+            }
+        }
+        .task {
+            if let loadedRooms = try? await db.fetchRooms() {
+                existingRoomNames = Set(loadedRooms.map { $0.name.lowercased() })
             }
         }
         .onAppear {

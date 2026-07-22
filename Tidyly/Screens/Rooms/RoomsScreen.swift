@@ -4,19 +4,33 @@ import UniformTypeIdentifiers
 struct RoomsScreen: View {
     @EnvironmentObject var db: DatabaseService
     @State private var rooms: [RoomWithTasks] = []
+    @State private var householdTasks: [Task] = []
     @State private var loading = true
     @State private var refreshing = false
     @State private var showRoomEditor = false
     @State private var editingRoom: Room?
     @State private var draggedRoomId: UUID?
+    @State private var showStarterSetup = false
+    @AppStorage("didDismissStarterRoomSetup") private var didDismissStarterRoomSetup = false
 
     var body: some View {
         NavigationStack {
             ScrollView {
                 VStack(spacing: AppTheme.spacingMd) {
+                    NavigationLink {
+                        RoomDetailScreen(room: householdRoom)
+                    } label: {
+                        RoomProgressCard(room: householdRoom.room, completionRate: 0, dueCount: householdRoom.dueCount, overdueCount: householdRoom.overdueCount, taskCount: householdTasks.count)
+                    }
+                    .buttonStyle(.plain)
+                    .padding(.horizontal, AppTheme.spacingXl)
+                    .accessibilityHint("View general household tasks")
+
                     if rooms.isEmpty && !loading {
                         EmptyStateView(icon: "plus", title: "No rooms yet", subtitle: "Add your first room to start organizing cleaning tasks.")
                             .padding(.horizontal, AppTheme.spacingXl)
+                        Button("Set Up Starter Rooms") { showStarterSetup = true }
+                            .buttonStyle(.borderedProminent)
                     } else {
                         LazyVStack(spacing: AppTheme.spacingMd) {
                             ForEach(rooms) { rwt in
@@ -98,6 +112,12 @@ struct RoomsScreen: View {
                 RoomEditorSheet(room: editingRoom, onSaved: { _Concurrency.Task { await loadData() } })
                     .presentationDetents([.large])
             }
+            .sheet(isPresented: $showStarterSetup, onDismiss: {
+                didDismissStarterRoomSetup = true
+                _Concurrency.Task { await loadData() }
+            }) {
+                StarterRoomSetupSheet(onSaved: { showStarterSetup = false })
+            }
         }
         .task { await loadData() }
         .onReceive(NotificationCenter.default.publisher(for: .taskScheduleDidChange)) { _ in
@@ -107,12 +127,22 @@ struct RoomsScreen: View {
 
     private func loadData() async {
         do {
-            rooms = try await db.fetchRoomsWithTasks()
+            async let roomsResult = db.fetchRoomsWithTasks()
+            async let tasksResult = db.fetchAllTasks()
+            rooms = try await roomsResult
+            householdTasks = try await tasksResult.filter(\.isGeneralHouseholdTask).sorted { $0.nextDueAt < $1.nextDueAt }
+            if rooms.isEmpty && !didDismissStarterRoomSetup { showStarterSetup = true }
         } catch {
             print("Load error: \(error)")
         }
         loading = false
         refreshing = false
+    }
+
+    private var householdRoom: RoomWithTasks {
+        let room = Room(id: Task.generalHouseholdRoomId, name: "Household", icon: "🏠", color: "#3B82F6", sortOrder: -1, createdAt: .distantPast)
+        let today = DatabaseService.todayISO()
+        return RoomWithTasks(room: room, tasks: householdTasks, completionRate: 0, overdueCount: householdTasks.filter { DatabaseService.dateOnlyFormatter.string(from: $0.nextDueAt) < today }.count, dueCount: householdTasks.filter { DatabaseService.dateOnlyFormatter.string(from: $0.nextDueAt) <= today }.count)
     }
 
     private func persistRoomOrder(_ orderedRooms: [RoomWithTasks]) {
@@ -125,6 +155,69 @@ struct RoomsScreen: View {
                 await loadData()
             }
         }
+    }
+}
+
+private struct StarterRoomSetupSheet: View {
+    @EnvironmentObject private var db: DatabaseService
+    @Environment(\.dismiss) private var dismiss
+    let onSaved: () -> Void
+    @State private var selected = Set(["Kitchen", "Primary Bedroom", "Bathroom", "Living Room"])
+    @State private var saving = false
+    @State private var errorMessage: String?
+
+    var body: some View {
+        NavigationStack {
+            List {
+                Section {
+                    Text("Choose any rooms you want. You can change everything later.")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                }
+                ForEach(TaskSuggestionCatalog.starterRooms) { plan in
+                    Section {
+                        Button {
+                            if selected.contains(plan.id) { selected.remove(plan.id) } else { selected.insert(plan.id) }
+                        } label: {
+                            HStack {
+                                Text(plan.icon)
+                                Text(plan.name).foregroundStyle(.primary)
+                                Spacer()
+                                Image(systemName: selected.contains(plan.id) ? "checkmark.circle.fill" : "circle")
+                            }
+                        }
+                        .accessibilityValue(selected.contains(plan.id) ? "Selected" : "Not selected")
+                        if selected.contains(plan.id) {
+                            ForEach(plan.tasks) { task in
+                                Label(task.title, systemImage: "sparkles")
+                                    .font(.subheadline)
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+                    }
+                }
+            }
+            .navigationTitle("Starter Rooms")
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) { Button("Not Now") { dismiss() } }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button(saving ? "Saving…" : "Create") { _Concurrency.Task { await save() } }
+                        .disabled(selected.isEmpty || saving)
+                }
+            }
+            .alert("Couldn’t Create Rooms", isPresented: Binding(get: { errorMessage != nil }, set: { if !$0 { errorMessage = nil } })) {
+                Button("OK", role: .cancel) {}
+            } message: { Text(errorMessage ?? "Please try again.") }
+        }
+    }
+
+    private func save() async {
+        saving = true
+        defer { saving = false }
+        do {
+            try await db.createStarterRooms(TaskSuggestionCatalog.starterRooms.filter { selected.contains($0.id) })
+            onSaved()
+        } catch { errorMessage = error.localizedDescription }
     }
 }
 
@@ -241,9 +334,11 @@ struct RoomDetailScreen: View {
         .navigationBarTitleDisplayMode(.inline)
         .background(ColorAsset.background.color.ignoresSafeArea())
         .toolbar {
-            ToolbarItem(placement: .primaryAction) {
-                Button("Edit") {
-                    showRoomEditor = true
+            if room.room.id != Task.generalHouseholdRoomId {
+                ToolbarItem(placement: .primaryAction) {
+                    Button("Edit") {
+                        showRoomEditor = true
+                    }
                 }
             }
         }
@@ -291,7 +386,7 @@ struct RoomDetailScreen: View {
             async let tasksResult = db.fetchAllTasks()
             async let roomsResult = db.fetchRooms()
             let (allTasks, allRooms) = try await (tasksResult, roomsResult)
-            tasks = allTasks.filter { $0.roomId == room.room.id }.sorted { $0.nextDueAt < $1.nextDueAt }
+            tasks = allTasks.filter { room.room.id == Task.generalHouseholdRoomId ? $0.isGeneralHouseholdTask : (!$0.isGeneralHouseholdTask && $0.roomId == room.room.id) }.sorted { $0.nextDueAt < $1.nextDueAt }
             rooms = allRooms
         } catch {
             print("Load error: \(error)")

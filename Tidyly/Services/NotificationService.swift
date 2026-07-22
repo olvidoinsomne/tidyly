@@ -35,11 +35,20 @@ enum NotificationService {
     static func reconcile(tasks: [Task], rooms: [Room], settings: Settings) async throws {
         await disableAll()
         guard settings.notificationsEnabled else { return }
-        guard await permissionStatus() == .authorized else { throw NotificationServiceError.permissionDenied }
+        switch await permissionStatus() {
+        case .notDetermined:
+            // Launch owns the initial permission prompt. Do not report a denial
+            // while the system has not asked the user yet.
+            return
+        case .denied:
+            throw NotificationServiceError.permissionDenied
+        case .authorized:
+            break
+        }
 
         let roomsById = Dictionary(uniqueKeysWithValues: rooms.map { ($0.id, $0) })
         let eligible = tasks.filter { task in
-            task.remindersEnabled && (roomsById[task.roomId]?.remindersEnabled ?? false)
+            task.remindersEnabled && (task.isGeneralHouseholdTask || (roomsById[task.roomId]?.remindersEnabled ?? false))
         }.sorted { $0.nextDueAt < $1.nextDueAt }
 
         // iOS allows 64 pending local notifications. Reserve two per nearest task.

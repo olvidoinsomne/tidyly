@@ -57,6 +57,7 @@ struct TidylyApp: App {
             .tint(ColorAsset.primary.color)
             .preferredColorScheme(darkModeEnabled ? .dark : .light)
             .task {
+                await configureNotificationsOnLaunch()
                 await db.refreshWidgetSnapshot()
                 await cloudAccount.refresh()
                 cloudTaskSync.start(databaseService: db)
@@ -77,6 +78,46 @@ struct TidylyApp: App {
                 guard phase == .active else { return }
                 _Concurrency.Task { await cloudTaskSync.syncNow() }
             }
+        }
+    }
+
+    private func configureNotificationsOnLaunch() async {
+        do {
+            let settings = try await db.fetchSettings()
+            guard settings.notificationsEnabled else {
+                await NotificationService.disableAll()
+                return
+            }
+
+            switch await NotificationService.permissionStatus() {
+            case .notDetermined:
+                let granted = try await NotificationService.requestPermission()
+                if granted {
+                    await db.refreshNotifications()
+                } else {
+                    try await db.updateSettings(
+                        householdName: nil,
+                        darkMode: nil,
+                        notificationsEnabled: false,
+                        weekStartsMonday: nil
+                    )
+                    await NotificationService.disableAll()
+                }
+            case .authorized:
+                await db.refreshNotifications()
+            case .denied:
+                // Permission may persist across reinstalls. Keep launch quiet and
+                // reflect the actual system state in Tidyly's reminder setting.
+                try await db.updateSettings(
+                    householdName: nil,
+                    darkMode: nil,
+                    notificationsEnabled: false,
+                    weekStartsMonday: nil
+                )
+                await NotificationService.disableAll()
+            }
+        } catch {
+            db.notificationError = error.localizedDescription
         }
     }
 }
