@@ -3,6 +3,7 @@ import SwiftUI
 struct TodayScreen: View {
     @EnvironmentObject var db: DatabaseService
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @State private var tasks: [TaskWithRoom] = []
     @State private var rooms: [Room] = []
     @State private var completedIds: Set<UUID> = []
@@ -65,10 +66,16 @@ struct TodayScreen: View {
                     .padding(.horizontal, AppTheme.spacingXl)
 
                     // Summary cards
-                    HStack(spacing: AppTheme.spacingMd) {
-                        SummaryCard(icon: "clock", value: "\(totalMinutes)m", label: "Remaining", color: ColorAsset.primary.color)
-                        SummaryCard(icon: "flame.fill", value: "\(overdueCount)", label: "Overdue", color: ColorAsset.warning.color)
-                        SummaryCard(icon: "arrow.up.right", value: "\(completedTasks.count)", label: "Done", color: ColorAsset.success.color)
+                    Group {
+                        if dynamicTypeSize.isAccessibilitySize {
+                            VStack(spacing: AppTheme.spacingMd) {
+                                summaryCards
+                            }
+                        } else {
+                            HStack(spacing: AppTheme.spacingMd) {
+                                summaryCards
+                            }
+                        }
                     }
                     .padding(.horizontal, AppTheme.spacingXl)
 
@@ -210,6 +217,13 @@ struct TodayScreen: View {
         } message: { Text(errorMessage ?? "Please try again.") }
     }
 
+    @ViewBuilder
+    private var summaryCards: some View {
+        SummaryCard(icon: "clock", value: "\(totalMinutes)m", label: "Remaining", color: ColorAsset.primary.color)
+        SummaryCard(icon: "flame.fill", value: "\(overdueCount)", label: "Overdue", color: ColorAsset.warning.color)
+        SummaryCard(icon: "arrow.up.right", value: "\(completedTasks.count)", label: "Done", color: ColorAsset.success.color)
+    }
+
     private func loadData() async {
         do {
             async let tasksResult = db.fetchTasksForDate(today)
@@ -339,35 +353,60 @@ private struct SectionHeader: View {
 }
 
 private struct SummaryCard: View {
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+
     let icon: String
     let value: String
     let label: String
     let color: Color
 
     var body: some View {
-        HStack(spacing: AppTheme.spacingSm) {
-            ZStack {
-                Circle()
-                    .fill(color.opacity(0.12))
-                    .frame(width: 36, height: 36)
-                Image(systemName: icon)
-                    .font(.system(size: 16))
-                    .foregroundColor(color)
+        ViewThatFits(in: .horizontal) {
+            HStack(spacing: AppTheme.spacingSm) {
+                iconView
+                summaryText
+                Spacer(minLength: 0)
             }
-            VStack(alignment: .leading, spacing: 0) {
-                Text(value)
-                    .font(.system(size: 17, weight: .bold))
-                    .foregroundColor(ColorAsset.text.color)
-                Text(label)
-                    .font(.system(size: 11, weight: .medium))
-                    .foregroundColor(ColorAsset.textTertiary.color)
+
+            VStack(alignment: .leading, spacing: AppTheme.spacingSm) {
+                iconView
+                summaryText
             }
-            Spacer(minLength: 0)
         }
         .padding(AppTheme.spacingMd)
+        .frame(maxWidth: .infinity, minHeight: dynamicTypeSize.isAccessibilitySize ? 128 : 76, alignment: .leading)
         .background(ColorAsset.surface.color)
         .cornerRadius(AppTheme.cornerLg)
         .overlay(RoundedRectangle(cornerRadius: AppTheme.cornerLg).stroke(ColorAsset.border.color, lineWidth: 1))
         .shadow(color: Color.black.opacity(0.04), radius: 3, x: 0, y: 1)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("\(label), \(value)")
+    }
+
+    private var iconView: some View {
+        ZStack {
+            Circle()
+                .fill(color.opacity(0.12))
+                .frame(width: 36, height: 36)
+            Image(systemName: icon)
+                .font(.system(size: 16))
+                .foregroundColor(color)
+        }
+        .accessibilityHidden(true)
+    }
+
+    private var summaryText: some View {
+        VStack(alignment: .leading, spacing: 1) {
+            Text(value)
+                .font(.headline.bold())
+                .foregroundColor(ColorAsset.text.color)
+                .lineLimit(1)
+                .minimumScaleFactor(0.8)
+            Text(label)
+                .font(.caption.weight(.medium))
+                .foregroundColor(ColorAsset.textTertiary.color)
+                .lineLimit(2)
+                .fixedSize(horizontal: false, vertical: true)
+        }
     }
 }
