@@ -2,7 +2,7 @@ create extension if not exists pgtap with schema extensions;
 
 begin;
 
-select plan(34);
+select plan(35);
 
 select has_schema('private', 'private helper schema exists');
 
@@ -46,6 +46,12 @@ select has_function(
   'accept_household_invitation',
   array['text'],
   'invitation acceptance RPC exists'
+);
+select has_function(
+  'public',
+  'migrate_local_household_data',
+  array['jsonb', 'jsonb'],
+  'atomic local data migration RPC exists'
 );
 select has_function(
   'public',

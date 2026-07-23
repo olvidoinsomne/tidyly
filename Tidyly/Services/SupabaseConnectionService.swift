@@ -22,7 +22,7 @@ struct SupabaseHousehold: Codable, Equatable, Identifiable {
 }
 
 @MainActor
-final class SupabaseConnectionService: ObservableObject {
+final class SupabaseConnectionService: ObservableObject, HouseholdRoomRepository, HouseholdTaskRepository {
     enum State: Equatable {
         case loading
         case signedOut
@@ -36,6 +36,13 @@ final class SupabaseConnectionService: ObservableObject {
     @Published private(set) var invitationURL: URL?
     @Published private(set) var invitationExpiresAt: Date?
     @Published private(set) var pendingInvitationToken: String?
+    @Published private(set) var householdMembers: [HouseholdMemberRecord] = []
+    @Published private(set) var sharedRooms: [HouseholdRoomRecord] = []
+    @Published private(set) var sharedTasks: [HouseholdTaskRecord] = []
+    @Published private(set) var sharedCompletions: [HouseholdCompletionRecord] = []
+    @Published private(set) var sharedDataError: String?
+    @Published private(set) var sharedDataLastLoadedAt: Date?
+    @Published private(set) var isMigratingLocalData = false
     private var session: SupabaseSession?
     private var appleNonce: String?
     private var authenticationTimeoutTask: _Concurrency.Task<Void, Never>?
@@ -44,6 +51,8 @@ final class SupabaseConnectionService: ObservableObject {
     var isBusy: Bool {
         state == .loading || state == .authenticating
     }
+
+    var currentUserId: UUID? { session?.userId }
 
     var statusText: String {
         switch state {
@@ -126,6 +135,9 @@ final class SupabaseConnectionService: ObservableObject {
             )
             session = newSession
             SupabaseSessionStore.save(newSession)
+            if let appleName = Self.appleDisplayName(from: credential.fullName) {
+                try await updateDisplayName(appleName)
+            }
             Self.debugLog("Supabase session created")
             try await loadHousehold()
         } catch {
@@ -172,6 +184,7 @@ final class SupabaseConnectionService: ObservableObject {
             throw SupabaseError.missingHousehold
         }
         state = .ready(household)
+        await refreshSharedData()
         Self.debugLog("Loaded household \(household.id)")
     }
 
@@ -225,14 +238,21 @@ final class SupabaseConnectionService: ObservableObject {
         invitationExpiresAt = nil
     }
 
-    func handleInvitationURL(_ url: URL) {
+    @discardableResult
+    func handleInvitationURL(_ url: URL) -> Bool {
         guard url.scheme == "tidyly",
               url.host == "household-invite",
               let token = URLComponents(url: url, resolvingAgainstBaseURL: false)?
                 .queryItems?.first(where: { $0.name == "token" })?.value,
-              !token.isEmpty else { return }
+              token.count >= 32,
+              token.count <= 512 else {
+            sharedDataError = "This household invitation link is malformed. Ask the sender for a new link."
+            return false
+        }
         pendingInvitationToken = token
+        sharedDataError = nil
         Self.debugLog("Stored pending household invitation")
+        return true
     }
 
     func acceptPendingInvitation() async throws {
@@ -244,14 +264,19 @@ final class SupabaseConnectionService: ObservableObject {
             throw SupabaseError.notAuthenticated
         }
         state = .loading
-        let _: UUID = try await authorizedRequest(
-            path: "rest/v1/rpc/accept_household_invitation",
-            method: "POST",
-            body: AcceptInvitationRequest(token: token)
-        )
-        pendingInvitationToken = nil
-        try await loadHousehold()
-        Self.debugLog("Accepted household invitation")
+        do {
+            let _: UUID = try await authorizedRequest(
+                path: "rest/v1/rpc/accept_household_invitation",
+                method: "POST",
+                body: AcceptInvitationRequest(token: token)
+            )
+            pendingInvitationToken = nil
+            try await loadHousehold()
+            Self.debugLog("Accepted household invitation")
+        } catch {
+            state = .failed(Self.invitationMessage(for: error))
+            throw error
+        }
     }
 
     func cancelPendingInvitation() {
@@ -277,7 +302,183 @@ final class SupabaseConnectionService: ObservableObject {
         session = nil
         appleNonce = nil
         SupabaseSessionStore.clear()
+        householdMembers = []
+        sharedRooms = []
+        sharedTasks = []
+        sharedCompletions = []
+        sharedDataLastLoadedAt = nil
         state = .signedOut
+    }
+
+    func refreshSharedData() async {
+        guard case .ready(let household) = state else { return }
+        do {
+            async let members = loadMembers(householdId: household.id)
+            async let rooms = loadRooms(householdId: household.id)
+            async let tasks = loadTasks(householdId: household.id)
+            async let completions = loadCompletions(householdId: household.id)
+            let result = try await (members, rooms, tasks, completions)
+            householdMembers = result.0
+            sharedRooms = result.1
+            sharedTasks = result.2
+            sharedCompletions = result.3
+            sharedDataError = nil
+            sharedDataLastLoadedAt = Date()
+            Self.debugLog("Reconciled Supabase data members=\(result.0.count) rooms=\(result.1.count) tasks=\(result.2.count) completions=\(result.3.count)")
+        } catch {
+            sharedDataError = Self.userMessage(for: error)
+            Self.debugLog("Shared-data reconciliation failed: \(Self.debugDescription(for: error))")
+        }
+    }
+
+    func updateDisplayName(_ name: String) async throws {
+        let cleaned = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard (1...100).contains(cleaned.count), let userId = currentUserId else {
+            throw SupabaseError.invalidDisplayName
+        }
+        let rows: [ProfileRow] = try await authorizedRequest(
+            path: "rest/v1/users",
+            queryItems: [
+                URLQueryItem(name: "id", value: "eq.\(userId.uuidString)"),
+                URLQueryItem(name: "select", value: "id,display_name")
+            ],
+            method: "PATCH",
+            body: ProfileUpdate(displayName: cleaned),
+            prefer: "return=representation"
+        )
+        guard !rows.isEmpty else { throw SupabaseError.invalidResponse }
+        if case .ready(let household) = state {
+            householdMembers = try await loadMembers(householdId: household.id)
+        }
+    }
+
+    func migrateLocalData(rooms: [Room], tasks: [Task]) async throws -> LocalMigrationResult {
+        guard case .ready = state else { throw SupabaseError.notAuthenticated }
+        guard sharedRooms.isEmpty, sharedTasks.isEmpty else {
+            throw LocalMigrationError.destinationNotEmpty
+        }
+        isMigratingLocalData = true
+        defer { isMigratingLocalData = false }
+
+        let payloadRooms = rooms.map(SupabaseMigrationRoom.init)
+        let payloadTasks = tasks.map(SupabaseMigrationTask.init)
+        let result: LocalMigrationResult = try await authorizedRequest(
+            path: "rest/v1/rpc/migrate_local_household_data",
+            method: "POST",
+            body: LocalMigrationRequest(rooms: payloadRooms, tasks: payloadTasks)
+        )
+        await refreshSharedData()
+        guard sharedRooms.count == result.roomCount, sharedTasks.count == result.taskCount else {
+            throw LocalMigrationError.verificationFailed
+        }
+        return result
+    }
+
+    func loadMembers(householdId: UUID) async throws -> [HouseholdMemberRecord] {
+        try await authorizedRequest(
+            path: "rest/v1/household_memberships",
+            queryItems: [
+                URLQueryItem(name: "select", value: "id,user_id,role,can_manage_rooms,can_manage_tasks,users!household_memberships_user_id_fkey(display_name)"),
+                URLQueryItem(name: "household_id", value: "eq.\(householdId.uuidString)"),
+                URLQueryItem(name: "status", value: "eq.active"),
+                URLQueryItem(name: "order", value: "created_at.asc")
+            ]
+        )
+    }
+
+    func loadRooms(householdId: UUID) async throws -> [HouseholdRoomRecord] {
+        try await authorizedRequest(
+            path: "rest/v1/rooms",
+            queryItems: [
+                URLQueryItem(name: "select", value: "id,household_id,name,icon,color,sort_order,updated_at,version"),
+                URLQueryItem(name: "household_id", value: "eq.\(householdId.uuidString)"),
+                URLQueryItem(name: "deleted_at", value: "is.null"),
+                URLQueryItem(name: "order", value: "sort_order.asc,id.asc")
+            ]
+        )
+    }
+
+    func loadTasks(householdId: UUID) async throws -> [HouseholdTaskRecord] {
+        try await authorizedRequest(
+            path: "rest/v1/tasks",
+            queryItems: [
+                URLQueryItem(name: "select", value: "id,household_id,room_id,assigned_membership_id,title,frequency_days,priority,estimated_minutes,last_completed_at,next_due_on,sort_order,updated_at,version"),
+                URLQueryItem(name: "household_id", value: "eq.\(householdId.uuidString)"),
+                URLQueryItem(name: "deleted_at", value: "is.null"),
+                URLQueryItem(name: "order", value: "next_due_on.asc,sort_order.asc,id.asc")
+            ]
+        )
+    }
+
+    func loadCompletions(householdId: UUID) async throws -> [HouseholdCompletionRecord] {
+        try await authorizedRequest(
+            path: "rest/v1/task_completions",
+            queryItems: [
+                URLQueryItem(name: "select", value: "id,task_id,room_id,completed_at,created_at,reversed_at"),
+                URLQueryItem(name: "household_id", value: "eq.\(householdId.uuidString)"),
+                URLQueryItem(name: "order", value: "completed_at.asc,id.asc")
+            ]
+        )
+    }
+
+    func syncCompletion(_ completion: LocalCompletionSyncRequest) async throws {
+        let _: UUID = try await authorizedRequest(
+            path: "rest/v1/rpc/complete_task",
+            method: "POST",
+            body: CompleteTaskRequest(
+                taskId: completion.taskId,
+                completedAt: completion.completedAt,
+                effectiveDate: completion.effectiveDate,
+                mutationId: completion.completionId
+            )
+        )
+        await refreshSharedData()
+    }
+
+    func syncCompletionReversal(_ reversal: LocalCompletionReversalSyncRequest) async throws {
+        let _: EmptyRPCResponse = try await authorizedRequest(
+            path: "rest/v1/rpc/reverse_task_completion",
+            method: "POST",
+            body: ReverseCompletionRequest(
+                completionId: reversal.completionId,
+                mutationId: reversal.mutationId
+            )
+        )
+        await refreshSharedData()
+    }
+
+    func createTask(householdId: UUID, roomId: UUID?, assignedMembershipId: UUID?, title: String, frequencyDays: Int, priority: String, estimatedMinutes: Int, nextDueOn: String) async throws -> HouseholdTaskRecord {
+        let rows: [HouseholdTaskRecord] = try await authorizedRequest(
+            path: "rest/v1/tasks",
+            queryItems: [URLQueryItem(name: "select", value: "id,household_id,room_id,assigned_membership_id,title,frequency_days,priority,estimated_minutes,last_completed_at,next_due_on,sort_order,updated_at,version")],
+            method: "POST",
+            body: SupabaseTaskInsert(
+                householdId: householdId, roomId: roomId, assignedMembershipId: assignedMembershipId,
+                title: title, frequencyDays: frequencyDays, priority: priority,
+                estimatedMinutes: estimatedMinutes, nextDueOn: nextDueOn
+            ),
+            prefer: "return=representation"
+        )
+        guard let task = rows.first else { throw HouseholdRepositoryError.taskNotFound }
+        await refreshSharedData()
+        return task
+    }
+
+    func updateTask(householdId: UUID, taskId: UUID, title: String, assignedMembershipId: UUID?) async throws -> HouseholdTaskRecord {
+        let rows: [HouseholdTaskRecord] = try await authorizedRequest(
+            path: "rest/v1/tasks",
+            queryItems: [
+                URLQueryItem(name: "id", value: "eq.\(taskId.uuidString)"),
+                URLQueryItem(name: "household_id", value: "eq.\(householdId.uuidString)"),
+                URLQueryItem(name: "select", value: "id,household_id,room_id,assigned_membership_id,title,frequency_days,priority,estimated_minutes,last_completed_at,next_due_on,sort_order,updated_at,version")
+            ],
+            method: "PATCH",
+            body: SupabaseTaskUpdate(title: title, assignedMembershipId: assignedMembershipId),
+            prefer: "return=representation"
+        )
+        guard let task = rows.first else { throw HouseholdRepositoryError.taskNotFound }
+        await refreshSharedData()
+        return task
     }
 
     private func refresh(_ refreshToken: String) async throws -> SupabaseSession {
@@ -302,7 +503,8 @@ final class SupabaseConnectionService: ObservableObject {
         path: String,
         queryItems: [URLQueryItem] = [],
         method: String = "GET",
-        body: Body?
+        body: Body?,
+        prefer: String? = nil
     ) async throws -> Response {
         guard var currentSession = session else { throw SupabaseError.notAuthenticated }
         if currentSession.isExpired {
@@ -315,7 +517,8 @@ final class SupabaseConnectionService: ObservableObject {
             queryItems: queryItems,
             method: method,
             body: body,
-            authorization: currentSession.accessToken
+            authorization: currentSession.accessToken,
+            prefer: prefer
         )
     }
 
@@ -324,7 +527,8 @@ final class SupabaseConnectionService: ObservableObject {
         queryItems: [URLQueryItem] = [],
         method: String,
         body: Body?,
-        authorization: String?
+        authorization: String?,
+        prefer: String? = nil
     ) async throws -> Response {
         var components = URLComponents(url: SupabaseConfiguration.projectURL.appending(path: path), resolvingAgainstBaseURL: false)!
         components.queryItems = queryItems.isEmpty ? nil : queryItems
@@ -336,6 +540,7 @@ final class SupabaseConnectionService: ObservableObject {
         if let authorization {
             request.setValue("Bearer \(authorization)", forHTTPHeaderField: "Authorization")
         }
+        if let prefer { request.setValue(prefer, forHTTPHeaderField: "Prefer") }
         if let body {
             request.httpBody = try JSONEncoder.supabase.encode(body)
         }
@@ -373,6 +578,15 @@ final class SupabaseConnectionService: ObservableObject {
         SHA256.hash(data: Data(value.utf8)).map { String(format: "%02x", $0) }.joined()
     }
 
+    private static func appleDisplayName(from components: PersonNameComponents?) -> String? {
+        guard let components else { return nil }
+        let formatter = PersonNameComponentsFormatter()
+        formatter.style = .default
+        let name = formatter.string(from: components)
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        return name.isEmpty ? nil : name
+    }
+
     private static func userMessage(for error: Error) -> String {
         if case SupabaseError.server(let message) = error {
             if message.localizedCaseInsensitiveContains("provider is not enabled") {
@@ -381,6 +595,22 @@ final class SupabaseConnectionService: ObservableObject {
             return message
         }
         return "Couldn’t update the shared household. Check your connection and try again."
+    }
+
+    private static func invitationMessage(for error: Error) -> String {
+        guard case SupabaseError.server(let message) = error else {
+            return "Couldn’t accept the invitation. Check your connection and try again."
+        }
+        if message.localizedCaseInsensitiveContains("expired") {
+            return "This household invitation has expired. Ask the sender for a new link."
+        }
+        if message.localizedCaseInsensitiveContains("no longer available") {
+            return "This household invitation was already used, declined, or revoked. Ask the sender for a new link."
+        }
+        if message.localizedCaseInsensitiveContains("not found") {
+            return "This household invitation is invalid. Ask the sender for a new link."
+        }
+        return message
     }
 
     private static func debugDescription(for error: Error) -> String {
@@ -477,7 +707,23 @@ private struct SupabaseSession: Codable {
         guard let expiresAt else { return false }
         return Date().timeIntervalSince1970 >= Double(expiresAt - 60)
     }
+
+    var userId: UUID? {
+        let parts = accessToken.split(separator: ".")
+        guard parts.count == 3 else { return nil }
+        var encoded = String(parts[1])
+            .replacingOccurrences(of: "-", with: "+")
+            .replacingOccurrences(of: "_", with: "/")
+        encoded += String(repeating: "=", count: (4 - encoded.count % 4) % 4)
+        guard let data = Data(base64Encoded: encoded),
+              let payload = try? JSONDecoder().decode(JWTPayload.self, from: data) else {
+            return nil
+        }
+        return UUID(uuidString: payload.sub)
+    }
 }
+
+private struct JWTPayload: Decodable { let sub: String }
 
 private struct AppleTokenRequest: Encodable {
     let provider: String
@@ -534,6 +780,180 @@ private struct AcceptInvitationRequest: Encodable {
     enum CodingKeys: String, CodingKey { case token = "p_invitation_token" }
 }
 
+private struct SupabaseTaskInsert: Encodable {
+    let householdId: UUID
+    let roomId: UUID?
+    let assignedMembershipId: UUID?
+    let title: String
+    let frequencyDays: Int
+    let priority: String
+    let estimatedMinutes: Int
+    let nextDueOn: String
+
+    enum CodingKeys: String, CodingKey {
+        case title, priority
+        case householdId = "household_id"
+        case roomId = "room_id"
+        case assignedMembershipId = "assigned_membership_id"
+        case frequencyDays = "frequency_days"
+        case estimatedMinutes = "estimated_minutes"
+        case nextDueOn = "next_due_on"
+    }
+}
+
+private struct SupabaseTaskUpdate: Encodable {
+    let title: String
+    let assignedMembershipId: UUID?
+    enum CodingKeys: String, CodingKey {
+        case title
+        case assignedMembershipId = "assigned_membership_id"
+    }
+}
+
+private struct ProfileUpdate: Encodable {
+    let displayName: String
+    enum CodingKeys: String, CodingKey { case displayName = "display_name" }
+}
+
+private struct ProfileRow: Decodable {
+    let id: UUID
+    let displayName: String
+    enum CodingKeys: String, CodingKey {
+        case id
+        case displayName = "display_name"
+    }
+}
+
+private struct CompleteTaskRequest: Encodable {
+    let taskId: UUID
+    let completedAt: Date
+    let effectiveDate: String
+    let mutationId: UUID
+    enum CodingKeys: String, CodingKey {
+        case taskId = "p_target_task_id"
+        case completedAt = "p_completed_at"
+        case effectiveDate = "p_effective_date"
+        case mutationId = "p_mutation_id"
+    }
+}
+
+private struct ReverseCompletionRequest: Encodable {
+    let completionId: UUID
+    let mutationId: UUID
+    enum CodingKeys: String, CodingKey {
+        case completionId = "p_target_completion_id"
+        case mutationId = "p_mutation_id"
+    }
+}
+
+private struct EmptyRPCResponse: Decodable {
+    init(from decoder: Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        guard container.decodeNil() else {
+            throw DecodingError.typeMismatch(
+                EmptyRPCResponse.self,
+                DecodingError.Context(codingPath: decoder.codingPath, debugDescription: "Expected null RPC response")
+            )
+        }
+    }
+}
+
+struct LocalMigrationResult: Decodable, Equatable {
+    let roomCount: Int
+    let taskCount: Int
+    enum CodingKeys: String, CodingKey {
+        case roomCount = "room_count"
+        case taskCount = "task_count"
+    }
+}
+
+private struct LocalMigrationRequest: Encodable {
+    let rooms: [SupabaseMigrationRoom]
+    let tasks: [SupabaseMigrationTask]
+    enum CodingKeys: String, CodingKey {
+        case rooms = "p_rooms"
+        case tasks = "p_tasks"
+    }
+}
+
+private struct SupabaseMigrationRoom: Encodable {
+    let id: UUID
+    let name: String
+    let icon: String
+    let color: String
+    let sortOrder: Int
+    let createdAt: Date
+    let updatedAt: Date
+
+    init(_ room: Room) {
+        id = room.id; name = room.name; icon = room.icon; color = room.color
+        sortOrder = room.sortOrder; createdAt = room.createdAt; updatedAt = room.createdAt
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case id, name, icon, color
+        case sortOrder = "sort_order"
+        case createdAt = "created_at"
+        case updatedAt = "updated_at"
+    }
+}
+
+private struct SupabaseMigrationTask: Encodable {
+    let id: UUID
+    let roomId: UUID?
+    let title: String
+    let frequencyDays: Int
+    let priority: String
+    let estimatedMinutes: Int
+    let lastCompletedAt: Date?
+    let nextDueOn: String
+    let sortOrder: Int
+    let createdAt: Date
+    let updatedAt: Date
+
+    init(_ task: Task) {
+        id = task.id
+        roomId = task.isGeneralHouseholdTask ? nil : task.roomId
+        title = task.title; frequencyDays = task.frequencyDays
+        priority = task.priority.rawValue; estimatedMinutes = task.estimatedMinutes
+        lastCompletedAt = task.lastDoneAt
+        let due = Calendar.current.dateComponents([.year, .month, .day], from: task.nextDueAt)
+        nextDueOn = String(
+            format: "%04d-%02d-%02d",
+            due.year ?? 1970,
+            due.month ?? 1,
+            due.day ?? 1
+        )
+        sortOrder = task.sortOrder; createdAt = task.createdAt; updatedAt = task.createdAt
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case id, title, priority
+        case roomId = "room_id"
+        case frequencyDays = "frequency_days"
+        case estimatedMinutes = "estimated_minutes"
+        case lastCompletedAt = "last_completed_at"
+        case nextDueOn = "next_due_on"
+        case sortOrder = "sort_order"
+        case createdAt = "created_at"
+        case updatedAt = "updated_at"
+    }
+}
+
+enum LocalMigrationError: LocalizedError {
+    case destinationNotEmpty
+    case verificationFailed
+
+    var errorDescription: String? {
+        switch self {
+        case .destinationNotEmpty:
+            "Migration is only available when the Supabase household has no rooms or tasks."
+        case .verificationFailed:
+            "Supabase accepted the migration, but the verification counts did not match. Your local data was retained."
+        }
+    }
+}
+
 private struct MembershipRow: Decodable {
     let householdId: UUID
     enum CodingKeys: String, CodingKey { case householdId = "household_id" }
@@ -555,6 +975,7 @@ private enum SupabaseError: Error {
     case invalidResponse
     case missingHousehold
     case invalidInvitation
+    case invalidDisplayName
     case notAuthenticated
     case server(String)
 }

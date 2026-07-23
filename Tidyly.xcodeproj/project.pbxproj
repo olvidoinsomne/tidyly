@@ -7,31 +7,27 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		015C1384135126F4ACB4D9FB /* HouseholdSharingService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1D8AEE7E3AA90CC1141D3835 /* HouseholdSharingService.swift */; };
 		03F2AF8F2DBE4059A9C5AB3A /* TaskSuggestionCatalog.swift in Sources */ = {isa = PBXBuildFile; fileRef = B274E348F39A92986FB63B36 /* TaskSuggestionCatalog.swift */; };
 		08BFD40ADFF1DFC133A2295C /* Models.swift in Sources */ = {isa = PBXBuildFile; fileRef = 00B6C7017621D82B3E292F22 /* Models.swift */; };
 		0CDE338DF763DB27F59B44B5 /* TaskEditorSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0E7B5BE18081741DA1416EB2 /* TaskEditorSheet.swift */; };
 		119FFC47E7853263D69F0194 /* TidylyWidget.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = B023C2A285E14CB2F54B29D3 /* TidylyWidget.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
-		14716EDE3CF2C8CB20F565F9 /* CloudShareAppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = B36508034700A1C7652C5839 /* CloudShareAppDelegate.swift */; };
 		1A28BCEE3F093C44C715A877 /* SwiftDataModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = A9C60C3187F4B3733EDEA82D /* SwiftDataModels.swift */; };
 		1BC8C52C9113E049483CBF5B /* SupabaseConnectionService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4DB53E0D2344FA66C208374F /* SupabaseConnectionService.swift */; };
 		21F7990BEB82628289E228C8 /* DatabaseService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 11260A82BF61818E2AD8C021 /* DatabaseService.swift */; };
 		2AB1000C9FE0479A0FDF88DD /* RoomEditorSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 147AC17B53C28ABC2425FAA4 /* RoomEditorSheet.swift */; };
 		2DB577963E9366DF1C21D2C8 /* WidgetSnapshot.swift in Sources */ = {isa = PBXBuildFile; fileRef = A041D2110075780EF7A964AA /* WidgetSnapshot.swift */; };
 		381A68BF7B7FE8BDF9902264 /* NotificationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 56381DC50ADCB3A019625EA4 /* NotificationService.swift */; };
-		3EFF062771CD299B16FE921E /* CloudSharingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 334D54A0C634C8FE24CA1E0D /* CloudSharingView.swift */; };
 		40989158CA0A9529B7CF30E8 /* ActivityScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = 23D5A03F9712EE1B987B8EDA /* ActivityScreen.swift */; };
 		471EF17138ED00670E66D834 /* RoomEditorSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 147AC17B53C28ABC2425FAA4 /* RoomEditorSheet.swift */; };
 		4D3AFB0A8D98BD1DE4DA2D2F /* TodayScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5E59DD89D3D6811FFBB65CD9 /* TodayScreen.swift */; };
-		4DD53ADE1BF6E3F91C26D5B8 /* HouseholdSharingService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1D8AEE7E3AA90CC1141D3835 /* HouseholdSharingService.swift */; };
 		4DFA36D9A08804859FE1BAEB /* TidylyBackup.swift in Sources */ = {isa = PBXBuildFile; fileRef = 42C03DD8A811CFE940AAFA5B /* TidylyBackup.swift */; };
 		4F47456C7AEB0B5382FBC529 /* ProgressRing.swift in Sources */ = {isa = PBXBuildFile; fileRef = B3BB862A5339C5E41C91FDC7 /* ProgressRing.swift */; };
 		53055C3BE7E833D27460BC66 /* SearchScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A7B3851FDB82BB53CB54C21 /* SearchScreen.swift */; };
 		58108ADB7637296F0A009F78 /* TidylyApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 572AFED675A083DBA923F783 /* TidylyApp.swift */; };
+		5B4E9945DDE08C030D68F406 /* HouseholdDataRepositories.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7EFB27D64B629744E87B3959 /* HouseholdDataRepositories.swift */; };
 		5FCC305D7E82D4A07FCE355D /* ScheduleScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = 248093A0AC262017DB98AF7B /* ScheduleScreen.swift */; };
 		611157D2F4B9C506F92C3C3D /* TodayScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5E59DD89D3D6811FFBB65CD9 /* TodayScreen.swift */; };
 		6155E38CBB33A014B9200635 /* RoomsScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = 85588ED749B2015D6F77D53E /* RoomsScreen.swift */; };
-		6599872A16008638F4C739F1 /* CloudShareAppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = B36508034700A1C7652C5839 /* CloudShareAppDelegate.swift */; };
 		66417D85080136C56A42AAFA /* SettingsScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = 723779658F5BAADEBC5FCE84 /* SettingsScreen.swift */; };
 		6B231CD5D3D2EB91789330C1 /* TidylyApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 572AFED675A083DBA923F783 /* TidylyApp.swift */; };
 		6B6CC67A64FE6316456E79E5 /* EmptyStateView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2F1E1C00C9761E2CF5E38EA9 /* EmptyStateView.swift */; };
@@ -40,28 +36,24 @@
 		6F080E9F3DDCE0B2CBD90D4B /* ProgressRing.swift in Sources */ = {isa = PBXBuildFile; fileRef = B3BB862A5339C5E41C91FDC7 /* ProgressRing.swift */; };
 		741C23DA7155D491B713A4FC /* ScheduleScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = 248093A0AC262017DB98AF7B /* ScheduleScreen.swift */; };
 		7488359AE14686580770EA02 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A208D29EF95DD408840E656C /* Assets.xcassets */; };
-		74B648BE32834BA961B7C203 /* CloudTaskSyncService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A59351DDC08FBFA4B65BD6DF /* CloudTaskSyncService.swift */; };
 		7B06E9539C5C230996AFA426 /* ActivityScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = 23D5A03F9712EE1B987B8EDA /* ActivityScreen.swift */; };
-		7F2B3B59FA15AE4479562353 /* CloudAccountService.swift in Sources */ = {isa = PBXBuildFile; fileRef = E44DCEFBAE00DFC4E8C36B2E /* CloudAccountService.swift */; };
 		822B293145734D2F3E7E0CD6 /* DatabaseService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 11260A82BF61818E2AD8C021 /* DatabaseService.swift */; };
 		89B09C60FD300992DDDCE49A /* StatsScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = CB7A34221C60A2CF5FA6705B /* StatsScreen.swift */; };
 		9090918F07004E2030008094 /* SettingsScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = 723779658F5BAADEBC5FCE84 /* SettingsScreen.swift */; };
 		934E6C01E62576F944B20408 /* TaskSuggestionCatalog.swift in Sources */ = {isa = PBXBuildFile; fileRef = B274E348F39A92986FB63B36 /* TaskSuggestionCatalog.swift */; };
-		976AD49B2AA947D4425B3A25 /* CloudTaskSyncService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A59351DDC08FBFA4B65BD6DF /* CloudTaskSyncService.swift */; };
 		980446B8B22C3EF83081C195 /* TidylyBackup.swift in Sources */ = {isa = PBXBuildFile; fileRef = 42C03DD8A811CFE940AAFA5B /* TidylyBackup.swift */; };
 		9C209F12CA76D1FCED4C970F /* TaskEditorSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0E7B5BE18081741DA1416EB2 /* TaskEditorSheet.swift */; };
 		9E515DA40585C4D52AECEA59 /* SwiftDataModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = A9C60C3187F4B3733EDEA82D /* SwiftDataModels.swift */; };
-		A1254822875E6369710241A5 /* CloudAccountService.swift in Sources */ = {isa = PBXBuildFile; fileRef = E44DCEFBAE00DFC4E8C36B2E /* CloudAccountService.swift */; };
 		A957BCEA33D01B9C1D46EF26 /* RoomProgressCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2DFD7F273682FAC03EF1B1C2 /* RoomProgressCard.swift */; };
 		B5BF58B3A0277BB7835369A8 /* RoomProgressCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2DFD7F273682FAC03EF1B1C2 /* RoomProgressCard.swift */; };
 		B66BBAE485B1739B4BF1B011 /* TidylyWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1557D62B2ED22CD8B77A43C0 /* TidylyWidget.swift */; };
 		C3BF6B17E9DDEA6C9EC0A352 /* WidgetSnapshot.swift in Sources */ = {isa = PBXBuildFile; fileRef = A041D2110075780EF7A964AA /* WidgetSnapshot.swift */; };
 		C7DA428DC7E23E2865939577 /* Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = AEA515DD10A4329588D95F6F /* Theme.swift */; };
 		CA6BC9292250A6CB4FC1D4C7 /* Models.swift in Sources */ = {isa = PBXBuildFile; fileRef = 00B6C7017621D82B3E292F22 /* Models.swift */; };
+		D0DBCE424E7253EFCD3788ED /* HouseholdDataRepositories.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7EFB27D64B629744E87B3959 /* HouseholdDataRepositories.swift */; };
 		D9B88583E62321406C1663C8 /* TidylyWidget.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = B023C2A285E14CB2F54B29D3 /* TidylyWidget.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		DB42848CF923CA7BBFF334FE /* EmptyStateView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2F1E1C00C9761E2CF5E38EA9 /* EmptyStateView.swift */; };
 		E137C6CD843CB2752C060BC0 /* SearchScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A7B3851FDB82BB53CB54C21 /* SearchScreen.swift */; };
-		E42AF48787675B85BF34EA76 /* CloudSharingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 334D54A0C634C8FE24CA1E0D /* CloudSharingView.swift */; };
 		E6F476EAB251ED98A6CA87BC /* RoomsScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = 85588ED749B2015D6F77D53E /* RoomsScreen.swift */; };
 		EA942605C00D03D758F4F416 /* Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = AEA515DD10A4329588D95F6F /* Theme.swift */; };
 		EABA261F9AB35961AAC7AFA3 /* NotificationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 56381DC50ADCB3A019625EA4 /* NotificationService.swift */; };
@@ -120,12 +112,10 @@
 		11260A82BF61818E2AD8C021 /* DatabaseService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DatabaseService.swift; sourceTree = "<group>"; };
 		147AC17B53C28ABC2425FAA4 /* RoomEditorSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RoomEditorSheet.swift; sourceTree = "<group>"; };
 		1557D62B2ED22CD8B77A43C0 /* TidylyWidget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TidylyWidget.swift; sourceTree = "<group>"; };
-		1D8AEE7E3AA90CC1141D3835 /* HouseholdSharingService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HouseholdSharingService.swift; sourceTree = "<group>"; };
 		23D5A03F9712EE1B987B8EDA /* ActivityScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActivityScreen.swift; sourceTree = "<group>"; };
 		248093A0AC262017DB98AF7B /* ScheduleScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScheduleScreen.swift; sourceTree = "<group>"; };
 		2DFD7F273682FAC03EF1B1C2 /* RoomProgressCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RoomProgressCard.swift; sourceTree = "<group>"; };
 		2F1E1C00C9761E2CF5E38EA9 /* EmptyStateView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EmptyStateView.swift; sourceTree = "<group>"; };
-		334D54A0C634C8FE24CA1E0D /* CloudSharingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CloudSharingView.swift; sourceTree = "<group>"; };
 		42C03DD8A811CFE940AAFA5B /* TidylyBackup.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TidylyBackup.swift; sourceTree = "<group>"; };
 		4DB53E0D2344FA66C208374F /* SupabaseConnectionService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SupabaseConnectionService.swift; sourceTree = "<group>"; };
 		56381DC50ADCB3A019625EA4 /* NotificationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationService.swift; sourceTree = "<group>"; };
@@ -133,21 +123,19 @@
 		572AFED675A083DBA923F783 /* TidylyApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TidylyApp.swift; sourceTree = "<group>"; };
 		5E59DD89D3D6811FFBB65CD9 /* TodayScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TodayScreen.swift; sourceTree = "<group>"; };
 		723779658F5BAADEBC5FCE84 /* SettingsScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsScreen.swift; sourceTree = "<group>"; };
+		7EFB27D64B629744E87B3959 /* HouseholdDataRepositories.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HouseholdDataRepositories.swift; sourceTree = "<group>"; };
 		85588ED749B2015D6F77D53E /* RoomsScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RoomsScreen.swift; sourceTree = "<group>"; };
 		8A7B3851FDB82BB53CB54C21 /* SearchScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SearchScreen.swift; sourceTree = "<group>"; };
 		A041D2110075780EF7A964AA /* WidgetSnapshot.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WidgetSnapshot.swift; sourceTree = "<group>"; };
 		A208D29EF95DD408840E656C /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
-		A59351DDC08FBFA4B65BD6DF /* CloudTaskSyncService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CloudTaskSyncService.swift; sourceTree = "<group>"; };
 		A9C60C3187F4B3733EDEA82D /* SwiftDataModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SwiftDataModels.swift; sourceTree = "<group>"; };
 		AEA515DD10A4329588D95F6F /* Theme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Theme.swift; sourceTree = "<group>"; };
 		B023C2A285E14CB2F54B29D3 /* TidylyWidget.appex */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = "wrapper.app-extension"; path = TidylyWidget.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		B274E348F39A92986FB63B36 /* TaskSuggestionCatalog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TaskSuggestionCatalog.swift; sourceTree = "<group>"; };
-		B36508034700A1C7652C5839 /* CloudShareAppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CloudShareAppDelegate.swift; sourceTree = "<group>"; };
 		B3BB862A5339C5E41C91FDC7 /* ProgressRing.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProgressRing.swift; sourceTree = "<group>"; };
 		B4D50D403AAD06C29D78A326 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		CB7A34221C60A2CF5FA6705B /* StatsScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatsScreen.swift; sourceTree = "<group>"; };
 		E0A383BAF8524B570F3FB6F5 /* Tidyly.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Tidyly.app; sourceTree = BUILT_PRODUCTS_DIR; };
-		E44DCEFBAE00DFC4E8C36B2E /* CloudAccountService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CloudAccountService.swift; sourceTree = "<group>"; };
 		FEFEA93D113A1A4292159841 /* Tidyly.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = Tidyly.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
@@ -155,7 +143,6 @@
 		056D95D3DE1A2AD8015A7A23 /* Components */ = {
 			isa = PBXGroup;
 			children = (
-				334D54A0C634C8FE24CA1E0D /* CloudSharingView.swift */,
 				2F1E1C00C9761E2CF5E38EA9 /* EmptyStateView.swift */,
 				B3BB862A5339C5E41C91FDC7 /* ProgressRing.swift */,
 				147AC17B53C28ABC2425FAA4 /* RoomEditorSheet.swift */,
@@ -206,11 +193,8 @@
 		3628D19E3917D78FA2F8AC3D /* Services */ = {
 			isa = PBXGroup;
 			children = (
-				E44DCEFBAE00DFC4E8C36B2E /* CloudAccountService.swift */,
-				B36508034700A1C7652C5839 /* CloudShareAppDelegate.swift */,
-				A59351DDC08FBFA4B65BD6DF /* CloudTaskSyncService.swift */,
 				11260A82BF61818E2AD8C021 /* DatabaseService.swift */,
-				1D8AEE7E3AA90CC1141D3835 /* HouseholdSharingService.swift */,
+				7EFB27D64B629744E87B3959 /* HouseholdDataRepositories.swift */,
 				56381DC50ADCB3A019625EA4 /* NotificationService.swift */,
 				4DB53E0D2344FA66C208374F /* SupabaseConnectionService.swift */,
 			);
@@ -451,13 +435,9 @@
 			buildActionMask = 2147483647;
 			files = (
 				7B06E9539C5C230996AFA426 /* ActivityScreen.swift in Sources */,
-				7F2B3B59FA15AE4479562353 /* CloudAccountService.swift in Sources */,
-				14716EDE3CF2C8CB20F565F9 /* CloudShareAppDelegate.swift in Sources */,
-				E42AF48787675B85BF34EA76 /* CloudSharingView.swift in Sources */,
-				976AD49B2AA947D4425B3A25 /* CloudTaskSyncService.swift in Sources */,
 				21F7990BEB82628289E228C8 /* DatabaseService.swift in Sources */,
 				DB42848CF923CA7BBFF334FE /* EmptyStateView.swift in Sources */,
-				015C1384135126F4ACB4D9FB /* HouseholdSharingService.swift in Sources */,
+				5B4E9945DDE08C030D68F406 /* HouseholdDataRepositories.swift in Sources */,
 				08BFD40ADFF1DFC133A2295C /* Models.swift in Sources */,
 				381A68BF7B7FE8BDF9902264 /* NotificationService.swift in Sources */,
 				6F080E9F3DDCE0B2CBD90D4B /* ProgressRing.swift in Sources */,
@@ -486,13 +466,9 @@
 			buildActionMask = 2147483647;
 			files = (
 				40989158CA0A9529B7CF30E8 /* ActivityScreen.swift in Sources */,
-				A1254822875E6369710241A5 /* CloudAccountService.swift in Sources */,
-				6599872A16008638F4C739F1 /* CloudShareAppDelegate.swift in Sources */,
-				3EFF062771CD299B16FE921E /* CloudSharingView.swift in Sources */,
-				74B648BE32834BA961B7C203 /* CloudTaskSyncService.swift in Sources */,
 				822B293145734D2F3E7E0CD6 /* DatabaseService.swift in Sources */,
 				6B6CC67A64FE6316456E79E5 /* EmptyStateView.swift in Sources */,
-				4DD53ADE1BF6E3F91C26D5B8 /* HouseholdSharingService.swift in Sources */,
+				D0DBCE424E7253EFCD3788ED /* HouseholdDataRepositories.swift in Sources */,
 				CA6BC9292250A6CB4FC1D4C7 /* Models.swift in Sources */,
 				EABA261F9AB35961AAC7AFA3 /* NotificationService.swift in Sources */,
 				4F47456C7AEB0B5382FBC529 /* ProgressRing.swift in Sources */,
@@ -625,7 +601,6 @@
 				INFOPLIST_FILE = Tidyly/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = Tidyly;
 				INFOPLIST_KEY_CFBundleURLTypes = "[{\"CFBundleURLName\":\"com.tidyly.jonesweb.club\",\"CFBundleURLSchemes\":[\"tidyly\"]}]";
-				INFOPLIST_KEY_CKSharingSupported = YES;
 				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.lifestyle";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "Copyright (c) 2026 Tidyly. All rights reserved.";
@@ -658,7 +633,6 @@
 				INFOPLIST_FILE = Tidyly/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = Tidyly;
 				INFOPLIST_KEY_CFBundleURLTypes = "[{\"CFBundleURLName\":\"com.tidyly.jonesweb.club\",\"CFBundleURLSchemes\":[\"tidyly\"]}]";
-				INFOPLIST_KEY_CKSharingSupported = YES;
 				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.lifestyle";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "Copyright (c) 2026 Tidyly. All rights reserved.";
@@ -677,7 +651,7 @@
 				SUPPORTS_MACCATALYST = NO;
 				SUPPORTS_MAC_DESIGNED_FOR_IPAD_IPHONE = NO;
 				TARGETED_DEVICE_FAMILY = "1,2";
-				configs = "[\"Debug\": [\"SWIFT_ACTIVE_COMPILATION_CONDITIONS\": \"DEBUG\"], \"Release\": [\"SWIFT_ACTIVE_COMPILATION_CONDITIONS\": \"\"]]";
+				configs = "[\"Release\": [\"SWIFT_ACTIVE_COMPILATION_CONDITIONS\": \"\"], \"Debug\": [\"SWIFT_ACTIVE_COMPILATION_CONDITIONS\": \"DEBUG\"]]";
 			};
 			name = Debug;
 		};
@@ -759,7 +733,6 @@
 				INFOPLIST_FILE = Tidyly/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = Tidyly;
 				INFOPLIST_KEY_CFBundleURLTypes = "[{\"CFBundleURLName\":\"com.tidyly.jonesweb.club\",\"CFBundleURLSchemes\":[\"tidyly\"]}]";
-				INFOPLIST_KEY_CKSharingSupported = YES;
 				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.lifestyle";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "Copyright (c) 2026 Tidyly. All rights reserved.";
@@ -778,7 +751,7 @@
 				SUPPORTS_MACCATALYST = NO;
 				SUPPORTS_MAC_DESIGNED_FOR_IPAD_IPHONE = NO;
 				TARGETED_DEVICE_FAMILY = "1,2";
-				configs = "[\"Debug\": [\"SWIFT_ACTIVE_COMPILATION_CONDITIONS\": \"DEBUG\"], \"Release\": [\"SWIFT_ACTIVE_COMPILATION_CONDITIONS\": \"\"]]";
+				configs = "[\"Release\": [\"SWIFT_ACTIVE_COMPILATION_CONDITIONS\": \"\"], \"Debug\": [\"SWIFT_ACTIVE_COMPILATION_CONDITIONS\": \"DEBUG\"]]";
 			};
 			name = Release;
 		};
@@ -793,7 +766,6 @@
 				INFOPLIST_FILE = Tidyly/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = Tidyly;
 				INFOPLIST_KEY_CFBundleURLTypes = "[{\"CFBundleURLName\":\"com.tidyly.jonesweb.club\",\"CFBundleURLSchemes\":[\"tidyly\"]}]";
-				INFOPLIST_KEY_CKSharingSupported = YES;
 				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.lifestyle";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "Copyright (c) 2026 Tidyly. All rights reserved.";

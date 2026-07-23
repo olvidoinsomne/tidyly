@@ -2,7 +2,7 @@ create extension if not exists pgtap with schema extensions;
 
 begin;
 
-select plan(14);
+select plan(17);
 
 insert into auth.users (
   instance_id,
@@ -54,6 +54,10 @@ create temporary table workflow_context (
   household_id uuid,
   invitation_id uuid,
   invitation_token text,
+  revoked_invitation_id uuid,
+  revoked_invitation_token text,
+  expired_invitation_id uuid,
+  expired_invitation_token text,
   member_membership_id uuid,
   room_id uuid,
   task_id uuid,
@@ -115,6 +119,40 @@ set
   invitation_id = invitation.invitation_id,
   invitation_token = invitation.invitation_token
 from invitation;
+
+with invitation as (
+  select *
+  from public.create_household_invitation(
+    'member'::public.membership_role,
+    interval '7 days'
+  )
+)
+update workflow_context context
+set
+  revoked_invitation_id = invitation.invitation_id,
+  revoked_invitation_token = invitation.invitation_token
+from invitation;
+
+with invitation as (
+  select *
+  from public.create_household_invitation(
+    'member'::public.membership_role,
+    interval '7 days'
+  )
+)
+update workflow_context context
+set
+  expired_invitation_id = invitation.invitation_id,
+  expired_invitation_token = invitation.invitation_token
+from invitation;
+
+update public.household_invitations
+set status = 'revoked', revoked_at = statement_timestamp()
+where id = (select revoked_invitation_id from workflow_context);
+
+update public.household_invitations
+set expires_at = statement_timestamp() - interval '1 second'
+where id = (select expired_invitation_id from workflow_context);
 
 select ok(
   (select invitation_token is not null from workflow_context),
@@ -303,6 +341,27 @@ select throws_ok(
   '42501',
   'new row violates row-level security policy for table "tasks"',
   'restricted Member cannot create tasks'
+);
+
+select throws_ok(
+  $$ select public.accept_household_invitation('malformed-token') $$,
+  '22023',
+  'Invitation not found',
+  'a malformed invitation token is rejected without membership changes'
+);
+
+select throws_ok(
+  $$ select public.accept_household_invitation((select revoked_invitation_token from workflow_context)) $$,
+  '22023',
+  'Invitation is no longer available',
+  'a revoked invitation cannot be accepted'
+);
+
+select throws_ok(
+  $$ select public.accept_household_invitation((select expired_invitation_token from workflow_context)) $$,
+  '22023',
+  'Invitation has expired',
+  'an expired invitation cannot be accepted'
 );
 
 select set_config(

@@ -4,11 +4,7 @@ import SwiftData
 @main
 struct TidylyApp: App {
     @Environment(\.scenePhase) private var scenePhase
-    @UIApplicationDelegateAdaptor(CloudShareAppDelegate.self) private var cloudShareAppDelegate
     @StateObject private var db = DatabaseService()
-    @StateObject private var cloudAccount = CloudAccountService()
-    @StateObject private var householdSharing = HouseholdSharingService()
-    @StateObject private var cloudTaskSync = CloudTaskSyncService()
     @StateObject private var supabaseConnection = SupabaseConnectionService()
     @AppStorage("darkModeEnabled") private var darkModeEnabled = false
     @State private var selectedTab = 0
@@ -49,9 +45,6 @@ struct TidylyApp: App {
                         Label("Settings", systemImage: "gearshape")
                     }
                     .environmentObject(db)
-                    .environmentObject(cloudAccount)
-                    .environmentObject(householdSharing)
-                    .environmentObject(cloudTaskSync)
                     .environmentObject(supabaseConnection)
                     .tag(4)
             }
@@ -61,9 +54,6 @@ struct TidylyApp: App {
             .task {
                 await configureNotificationsOnLaunch()
                 await db.refreshWidgetSnapshot()
-                await cloudAccount.refresh()
-                cloudTaskSync.start(databaseService: db)
-                await cloudTaskSync.syncNow()
             }
             .alert("Reminder Update Failed", isPresented: Binding(
                 get: { db.notificationError != nil },
@@ -84,7 +74,39 @@ struct TidylyApp: App {
             }
             .onChange(of: scenePhase) { _, phase in
                 guard phase == .active else { return }
-                _Concurrency.Task { await cloudTaskSync.syncNow() }
+                _Concurrency.Task { await supabaseConnection.refreshSharedData() }
+            }
+            .onChange(of: supabaseConnection.sharedDataLastLoadedAt) { _, loadedAt in
+                guard loadedAt != nil else { return }
+                do {
+                    try db.applySupabaseSnapshot(
+                        rooms: supabaseConnection.sharedRooms,
+                        tasks: supabaseConnection.sharedTasks,
+                        completions: supabaseConnection.sharedCompletions
+                    )
+                } catch {
+                    db.notificationError = "Shared household data couldn’t be cached: \(error.localizedDescription)"
+                }
+            }
+            .onReceive(NotificationCenter.default.publisher(for: .localCompletionCommitted)) { notification in
+                guard let request = notification.object as? LocalCompletionSyncRequest else { return }
+                _Concurrency.Task {
+                    do {
+                        try await supabaseConnection.syncCompletion(request)
+                    } catch {
+                        db.notificationError = "Completion saved locally but couldn’t sync: \(error.localizedDescription)"
+                    }
+                }
+            }
+            .onReceive(NotificationCenter.default.publisher(for: .localCompletionReversed)) { notification in
+                guard let request = notification.object as? LocalCompletionReversalSyncRequest else { return }
+                _Concurrency.Task {
+                    do {
+                        try await supabaseConnection.syncCompletionReversal(request)
+                    } catch {
+                        db.notificationError = "Completion reversal saved locally but couldn’t sync: \(error.localizedDescription)"
+                    }
+                }
             }
             .task { await supabaseConnection.restoreSession() }
         }

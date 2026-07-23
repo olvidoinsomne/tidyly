@@ -1,12 +1,8 @@
-import CloudKit
 import SwiftUI
 import UniformTypeIdentifiers
 
 struct SettingsScreen: View {
     @EnvironmentObject var db: DatabaseService
-    @EnvironmentObject var cloudAccount: CloudAccountService
-    @EnvironmentObject var householdSharing: HouseholdSharingService
-    @EnvironmentObject var cloudTaskSync: CloudTaskSyncService
     @EnvironmentObject var supabaseConnection: SupabaseConnectionService
     @AppStorage("darkModeEnabled") private var darkModeEnabled = false
     @AppStorage("weekStartsMonday") private var weekStartsMonday = true
@@ -20,7 +16,6 @@ struct SettingsScreen: View {
     @State private var defaultReminderTime = Calendar.current.date(from: DateComponents(hour: 9)) ?? Date()
     @State private var overdueFollowUpsEnabled = false
     @State private var permissionStatus: NotificationPermissionStatus = .notDetermined
-    @State private var showingHouseholdShare = false
     @State private var exportDocument: TidylyBackupDocument?
     @State private var showingExporter = false
     @State private var showingImporter = false
@@ -29,6 +24,11 @@ struct SettingsScreen: View {
     @State private var dataTransferStatus: String?
     @State private var householdSharingError: String?
     @State private var showingSupabaseJoinConfirmation = false
+    @State private var showingMigrationConfirmation = false
+    @State private var migrationBackupSaved = false
+    @State private var exportIsForMigration = false
+    @State private var showingProfileNameEditor = false
+    @State private var profileDisplayName = ""
 
     var body: some View {
         NavigationStack {
@@ -71,58 +71,6 @@ struct SettingsScreen: View {
                                     .font(.system(size: 13, weight: .semibold))
                                     .foregroundColor(ColorAsset.primary.color)
                             }
-                        }
-                        Divider()
-                        HStack(alignment: .top, spacing: AppTheme.spacingMd) {
-                            Image(systemName: cloudAccount.status.isAvailable ? "checkmark.icloud.fill" : "exclamationmark.icloud.fill")
-                                .foregroundColor(cloudAccount.status.isAvailable ? ColorAsset.success.color : ColorAsset.warning.color)
-                                .accessibilityHidden(true)
-                            VStack(alignment: .leading, spacing: 3) {
-                                Text(cloudAccount.status.title)
-                                    .font(.body.weight(.semibold))
-                                Text(cloudAccount.status.guidance)
-                                    .font(.footnote)
-                                    .foregroundColor(ColorAsset.textTertiary.color)
-                            }
-                            Spacer()
-                            if !cloudAccount.status.isAvailable && cloudAccount.status != .checking {
-                                Button("Retry") { _Concurrency.Task { await cloudAccount.refresh() } }
-                            }
-                        }
-                        .accessibilityElement(children: .combine)
-                        Divider()
-                        Button {
-                            _Concurrency.Task {
-                                await householdSharing.prepareHousehold(named: settings?.householdName ?? "My Home")
-                                await cloudTaskSync.syncNow()
-                                showingHouseholdShare = householdSharing.share != nil
-                            }
-                        } label: {
-                            HStack {
-                                SettingIcon(icon: "person.badge.plus", color: ColorAsset.primary.color)
-                                VStack(alignment: .leading) {
-                                    Text("Invite People")
-                                        .font(.body.weight(.semibold))
-                                    Text(householdSharing.statusText)
-                                        .font(.footnote)
-                                        .foregroundColor(ColorAsset.textTertiary.color)
-                                }
-                                Spacer()
-                                if householdSharing.state == .preparing { ProgressView() }
-                            }
-                        }
-                        .buttonStyle(.plain)
-                        .disabled(!cloudAccount.status.isAvailable || householdSharing.state == .preparing)
-                        Divider()
-                        HStack {
-                            SettingIcon(icon: "arrow.triangle.2.circlepath.icloud", color: ColorAsset.secondary.color)
-                            VStack(alignment: .leading) {
-                                Text("Shared Task Sync").font(.body.weight(.semibold))
-                                Text(cloudTaskSync.statusText).font(.footnote).foregroundColor(ColorAsset.textTertiary.color)
-                            }
-                            Spacer()
-                            Button(cloudTaskSync.state == .syncing ? "Syncing…" : "Sync Now") { _Concurrency.Task { await cloudTaskSync.syncNow() } }
-                                .disabled(cloudTaskSync.state == .syncing)
                         }
                         }
                     }
@@ -278,23 +226,26 @@ struct SettingsScreen: View {
             } message: {
                 Text("Joining first adds your account to the shared household. Tidyly will then permanently clear this device’s existing rooms, tasks, completions, and activity. Export a backup before continuing if you may need this data.")
             }
-        }
-        .task { await loadData() }
-        .onReceive(NotificationCenter.default.publisher(for: .householdShareFailed)) { notification in
-            let error = notification.object as? Error
-            householdSharingError = error?.localizedDescription ?? "CloudKit couldn’t update this household share."
-            #if DEBUG
-            print("[CloudKitShare] controller failure: \(error?.localizedDescription ?? "unknown error")")
-            #endif
-        }
-        .sheet(isPresented: $showingHouseholdShare) {
-            if let share = householdSharing.share {
-                CloudSharingView(
-                    share: share,
-                    container: CKContainer(identifier: CloudAccountService.containerIdentifier)
-                )
+            .alert("Migrate Local Data to Supabase?", isPresented: $showingMigrationConfirmation) {
+                Button("Cancel", role: .cancel) {}
+                Button("Migrate \(localMigrationSummary)") {
+                    _Concurrency.Task { await migrateLocalData() }
+                }
+            } message: {
+                Text("This one-time upload preserves room and task IDs and leaves the local copy intact. Assignments start unassigned. Supabase must be empty, and the entire upload rolls back if any record fails.")
+            }
+            .alert("Your Household Name", isPresented: $showingProfileNameEditor) {
+                TextField("First and last name", text: $profileDisplayName)
+                    .textInputAutocapitalization(.words)
+                Button("Cancel", role: .cancel) {}
+                Button("Save") {
+                    _Concurrency.Task { await saveProfileDisplayName() }
+                }
+            } message: {
+                Text("This name is visible to members of your shared household.")
             }
         }
+        .task { await loadData() }
         .fileExporter(
             isPresented: $showingExporter,
             document: exportDocument,
@@ -304,10 +255,12 @@ struct SettingsScreen: View {
             switch result {
             case .success:
                 dataTransferStatus = "Backup saved successfully."
+                if exportIsForMigration { migrationBackupSaved = true }
             case .failure(let error):
                 dataTransferStatus = "Export failed: \(error.localizedDescription)"
             }
             exportDocument = nil
+            exportIsForMigration = false
         }
         .fileImporter(isPresented: $showingImporter, allowedContentTypes: [.json]) { result in
             importFile(result)
@@ -433,6 +386,78 @@ struct SettingsScreen: View {
                     Button("Sign Out", role: .destructive) { supabaseConnection.signOut() }
                         .font(.footnote.weight(.semibold))
                 }
+                VStack(alignment: .leading, spacing: AppTheme.spacingSm) {
+                    HStack {
+                        Label("Supabase data preview", systemImage: "server.rack")
+                            .font(.footnote.weight(.semibold))
+                        Spacer()
+                        Button("Refresh") { _Concurrency.Task { await supabaseConnection.refreshSharedData() } }
+                            .font(.footnote.weight(.semibold))
+                    }
+                    Text("\(supabaseConnection.householdMembers.count) members · \(supabaseConnection.sharedRooms.count) rooms · \(supabaseConnection.sharedTasks.count) tasks")
+                        .font(.caption)
+                        .foregroundColor(ColorAsset.textTertiary.color)
+                    if !supabaseConnection.householdMembers.isEmpty {
+                        VStack(alignment: .leading, spacing: 4) {
+                            ForEach(supabaseConnection.householdMembers) { member in
+                                HStack(spacing: AppTheme.spacingSm) {
+                                    Image(systemName: "person.crop.circle.fill")
+                                        .foregroundColor(ColorAsset.primary.color)
+                                    Text(member.displayName?.trimmingCharacters(in: .whitespacesAndNewlines).nilIfEmpty ?? "Tidyly member")
+                                        .font(.caption.weight(.semibold))
+                                    Spacer()
+                                    Text(member.role.capitalized)
+                                        .font(.caption2.weight(.semibold))
+                                        .foregroundColor(ColorAsset.textTertiary.color)
+                                }
+                            }
+                        }
+                        .padding(.vertical, 2)
+                        Button("Edit My Name") {
+                            profileDisplayName = supabaseConnection.householdMembers
+                                .first(where: { $0.userId == supabaseConnection.currentUserId })?
+                                .displayName ?? ""
+                            if profileDisplayName == "Tidyly member" { profileDisplayName = "" }
+                            showingProfileNameEditor = true
+                        }
+                        .font(.caption.weight(.semibold))
+                    }
+                    if let error = supabaseConnection.sharedDataError {
+                        Text(error).font(.caption).foregroundColor(ColorAsset.warning.color)
+                    } else if let loadedAt = supabaseConnection.sharedDataLastLoadedAt {
+                        Text("Read through household RLS \(loadedAt.formatted(date: .omitted, time: .shortened)). Local data was not changed.")
+                            .font(.caption)
+                            .foregroundColor(ColorAsset.textTertiary.color)
+                    }
+                }
+                if supabaseConnection.sharedRooms.isEmpty && supabaseConnection.sharedTasks.isEmpty {
+                    VStack(alignment: .leading, spacing: AppTheme.spacingSm) {
+                        Text("Move this device’s local data")
+                            .font(.footnote.weight(.semibold))
+                        Text("Export a backup first, then upload rooms and tasks atomically. Local data will remain on this device.")
+                            .font(.caption)
+                            .foregroundColor(ColorAsset.textTertiary.color)
+                        if migrationBackupSaved {
+                            Button {
+                                showingMigrationConfirmation = true
+                            } label: {
+                                Label(supabaseConnection.isMigratingLocalData ? "Migrating…" : "Migrate Local Data", systemImage: "arrow.up.circle.fill")
+                                    .frame(maxWidth: .infinity)
+                            }
+                            .buttonStyle(.borderedProminent)
+                            .disabled(supabaseConnection.isMigratingLocalData)
+                        } else {
+                            Button {
+                                exportIsForMigration = true
+                                _Concurrency.Task { await exportData() }
+                            } label: {
+                                Label("Export Backup to Continue", systemImage: "externaldrive.badge.checkmark")
+                                    .frame(maxWidth: .infinity)
+                            }
+                            .buttonStyle(.bordered)
+                        }
+                    }
+                }
                 if let invitationURL = supabaseConnection.invitationURL {
                     ShareLink(
                         item: invitationURL,
@@ -508,9 +533,37 @@ struct SettingsScreen: View {
         do {
             try await supabaseConnection.acceptPendingInvitation()
             try db.clearLocalHouseholdContentForSupabaseJoin()
+            await supabaseConnection.refreshSharedData()
             dataTransferStatus = "Joined the shared household. Local household data was cleared after acceptance."
         } catch {
             householdSharingError = "Couldn’t join the Supabase household: \(error.localizedDescription)"
+        }
+    }
+
+    private var localMigrationSummary: String {
+        let rooms = (try? db.fetchRoomsForMigrationCount()) ?? 0
+        let tasks = (try? db.fetchTasksForMigrationCount()) ?? 0
+        return "\(rooms) Rooms and \(tasks) Tasks"
+    }
+
+    private func migrateLocalData() async {
+        do {
+            let rooms = try await db.fetchRooms()
+            let tasks = try await db.fetchAllTasks()
+            let result = try await supabaseConnection.migrateLocalData(rooms: rooms, tasks: tasks)
+            dataTransferStatus = "Migration complete: \(result.roomCount) rooms and \(result.taskCount) tasks verified in Supabase. Local data was retained."
+            migrationBackupSaved = false
+        } catch {
+            householdSharingError = "Migration failed: \(error.localizedDescription)"
+        }
+    }
+
+    private func saveProfileDisplayName() async {
+        do {
+            try await supabaseConnection.updateDisplayName(profileDisplayName)
+            dataTransferStatus = "Your household display name was updated."
+        } catch {
+            householdSharingError = "Name update failed: \(error.localizedDescription)"
         }
     }
 
@@ -680,6 +733,10 @@ struct SettingsScreen: View {
             dataTransferStatus = "Import failed: \(error.localizedDescription)"
         }
     }
+}
+
+private extension String {
+    var nilIfEmpty: String? { isEmpty ? nil : self }
 }
 
 // MARK: - Helper Views
