@@ -264,6 +264,21 @@ final class DatabaseService: ObservableObject {
         try context.fetchCount(FetchDescriptor<StoredRoom>()) > 0 || context.fetchCount(FetchDescriptor<StoredTask>()) > 0
     }
 
+    func clearLocalHouseholdContentForSupabaseJoin() throws {
+        try context.fetch(FetchDescriptor<StoredActivityEvent>()).forEach(context.delete)
+        try context.fetch(FetchDescriptor<StoredCompletion>()).forEach(context.delete)
+        try context.fetch(FetchDescriptor<StoredTask>()).forEach(context.delete)
+        try context.fetch(FetchDescriptor<StoredRoom>()).forEach(context.delete)
+        do {
+            try context.save()
+            publishWidgetSnapshot()
+            NotificationCenter.default.post(name: .taskScheduleDidChange, object: nil)
+        } catch {
+            context.rollback()
+            throw error
+        }
+    }
+
     func applyCloudSnapshot(_ snapshot: CloudTaskSnapshot, deletedRoomIDs: Set<UUID> = [], deletedTaskIDs: Set<UUID> = []) throws {
         var changed = false
         let localRooms = Dictionary(uniqueKeysWithValues: try context.fetch(FetchDescriptor<StoredRoom>()).map { ($0.id, $0) })

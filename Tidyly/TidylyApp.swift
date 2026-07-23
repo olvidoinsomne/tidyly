@@ -9,6 +9,7 @@ struct TidylyApp: App {
     @StateObject private var cloudAccount = CloudAccountService()
     @StateObject private var householdSharing = HouseholdSharingService()
     @StateObject private var cloudTaskSync = CloudTaskSyncService()
+    @StateObject private var supabaseConnection = SupabaseConnectionService()
     @AppStorage("darkModeEnabled") private var darkModeEnabled = false
     @State private var selectedTab = 0
 
@@ -51,6 +52,7 @@ struct TidylyApp: App {
                     .environmentObject(cloudAccount)
                     .environmentObject(householdSharing)
                     .environmentObject(cloudTaskSync)
+                    .environmentObject(supabaseConnection)
                     .tag(4)
             }
             .modelContainer(db.modelContainer)
@@ -72,12 +74,19 @@ struct TidylyApp: App {
                 Text(db.notificationError ?? "Check notification permissions and try again.")
             }
             .onOpenURL { url in
-                if url.scheme == "tidyly", url.host == "today" { selectedTab = 0 }
+                guard url.scheme == "tidyly" else { return }
+                if url.host == "today" {
+                    selectedTab = 0
+                } else if url.host == "household-invite" {
+                    supabaseConnection.handleInvitationURL(url)
+                    selectedTab = 4
+                }
             }
             .onChange(of: scenePhase) { _, phase in
                 guard phase == .active else { return }
                 _Concurrency.Task { await cloudTaskSync.syncNow() }
             }
+            .task { await supabaseConnection.restoreSession() }
         }
     }
 

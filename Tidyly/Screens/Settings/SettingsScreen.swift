@@ -7,6 +7,7 @@ struct SettingsScreen: View {
     @EnvironmentObject var cloudAccount: CloudAccountService
     @EnvironmentObject var householdSharing: HouseholdSharingService
     @EnvironmentObject var cloudTaskSync: CloudTaskSyncService
+    @EnvironmentObject var supabaseConnection: SupabaseConnectionService
     @AppStorage("darkModeEnabled") private var darkModeEnabled = false
     @AppStorage("weekStartsMonday") private var weekStartsMonday = true
     @State private var settings: Settings?
@@ -26,6 +27,8 @@ struct SettingsScreen: View {
     @State private var pendingImport: TidylyBackup?
     @State private var showingImportConfirmation = false
     @State private var dataTransferStatus: String?
+    @State private var householdSharingError: String?
+    @State private var showingSupabaseJoinConfirmation = false
 
     var body: some View {
         NavigationStack {
@@ -118,11 +121,13 @@ struct SettingsScreen: View {
                                 Text(cloudTaskSync.statusText).font(.footnote).foregroundColor(ColorAsset.textTertiary.color)
                             }
                             Spacer()
-                            Button("Sync Now") { _Concurrency.Task { await cloudTaskSync.syncNow() } }
+                            Button(cloudTaskSync.state == .syncing ? "Syncing…" : "Sync Now") { _Concurrency.Task { await cloudTaskSync.syncNow() } }
                                 .disabled(cloudTaskSync.state == .syncing)
                         }
                         }
                     }
+
+                    sharedHouseholdSection
 
                     // Preferences
                     SettingsSection(title: "Preferences") {
@@ -222,7 +227,7 @@ struct SettingsScreen: View {
                                 Text("Version")
                                     .font(.system(size: 15, weight: .semibold))
                                     .foregroundColor(ColorAsset.text.color)
-                                Text("1.0.0")
+                                Text(Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "—")
                                     .font(.system(size: 13))
                                     .foregroundColor(ColorAsset.textTertiary.color)
                             }
@@ -257,8 +262,31 @@ struct SettingsScreen: View {
             } message: {
                 Text(notificationError ?? "Allow notifications in the Settings app and try again.")
             }
+            .alert("Household Sharing Failed", isPresented: Binding(
+                get: { householdSharingError != nil },
+                set: { if !$0 { householdSharingError = nil } }
+            )) {
+                Button("OK", role: .cancel) { householdSharingError = nil }
+            } message: {
+                Text(householdSharingError ?? "Please try again.")
+            }
+            .alert("Join Shared Household?", isPresented: $showingSupabaseJoinConfirmation) {
+                Button("Cancel", role: .cancel) {}
+                Button("Join and Clear Local Data", role: .destructive) {
+                    _Concurrency.Task { await joinSupabaseHousehold() }
+                }
+            } message: {
+                Text("Joining first adds your account to the shared household. Tidyly will then permanently clear this device’s existing rooms, tasks, completions, and activity. Export a backup before continuing if you may need this data.")
+            }
         }
         .task { await loadData() }
+        .onReceive(NotificationCenter.default.publisher(for: .householdShareFailed)) { notification in
+            let error = notification.object as? Error
+            householdSharingError = error?.localizedDescription ?? "CloudKit couldn’t update this household share."
+            #if DEBUG
+            print("[CloudKitShare] controller failure: \(error?.localizedDescription ?? "unknown error")")
+            #endif
+        }
         .sheet(isPresented: $showingHouseholdShare) {
             if let share = householdSharing.share {
                 CloudSharingView(
@@ -295,6 +323,194 @@ struct SettingsScreen: View {
             Button("Cancel", role: .cancel) { pendingImport = nil }
         } message: {
             Text("Importing replaces this device’s rooms, tasks, completions, activity, and settings with the selected backup. This cannot be undone.")
+        }
+    }
+
+    private var supabaseHouseholdIcon: String {
+        switch supabaseConnection.state {
+        case .loading, .authenticating: "person.crop.circle.badge.clock"
+        case .signedOut: "person.crop.circle.badge.plus"
+        case .needsHousehold: "house.badge.plus"
+        case .ready: "house.and.flag.fill"
+        case .failed: "exclamationmark.triangle.fill"
+        }
+    }
+
+    private var supabaseHouseholdColor: Color {
+        switch supabaseConnection.state {
+        case .loading, .authenticating, .signedOut: ColorAsset.primary.color
+        case .needsHousehold: ColorAsset.secondary.color
+        case .ready: ColorAsset.success.color
+        case .failed: ColorAsset.warning.color
+        }
+    }
+
+    private var supabaseHouseholdTitle: String {
+        switch supabaseConnection.state {
+        case .loading: "Loading Shared Household"
+        case .signedOut: "Set Up Household Sharing"
+        case .authenticating: "Signing In"
+        case .needsHousehold: "Create Your Shared Household"
+        case .ready(let household): household.name
+        case .failed: "Household Setup Needs Attention"
+        }
+    }
+
+    private var sharedHouseholdSection: some View {
+        SettingsSection(title: "Shared Household") {
+            VStack(alignment: .leading, spacing: AppTheme.spacingMd) {
+                sharedHouseholdStatus
+                sharedHouseholdAction
+                Text("Your existing rooms and tasks stay on this device until you explicitly choose to migrate them.")
+                    .font(.caption)
+                    .foregroundColor(ColorAsset.textTertiary.color)
+            }
+        }
+    }
+
+    private var sharedHouseholdStatus: some View {
+        HStack(alignment: .top, spacing: AppTheme.spacingMd) {
+            SettingIcon(icon: supabaseHouseholdIcon, color: supabaseHouseholdColor)
+            VStack(alignment: .leading, spacing: 3) {
+                Text(supabaseHouseholdTitle)
+                    .font(.body.weight(.semibold))
+                Text(supabaseConnection.statusText)
+                    .font(.footnote)
+                    .foregroundColor(ColorAsset.textTertiary.color)
+            }
+            Spacer()
+            if supabaseConnection.isBusy { ProgressView() }
+        }
+    }
+
+    @ViewBuilder
+    private var sharedHouseholdAction: some View {
+        if supabaseConnection.pendingInvitationToken != nil {
+            pendingInvitationAction
+        } else {
+            sharedHouseholdStateAction
+        }
+    }
+
+    @ViewBuilder
+    private var sharedHouseholdStateAction: some View {
+        switch supabaseConnection.state {
+        case .signedOut:
+            Button {
+                supabaseConnection.startAppleSignIn()
+            } label: {
+                HStack {
+                    Image(systemName: "apple.logo")
+                    Text("Continue with Apple")
+                        .fontWeight(.semibold)
+                }
+                .foregroundColor(.white)
+                .frame(maxWidth: .infinity, minHeight: 48)
+                .background(Color.black)
+            }
+            .buttonStyle(.plain)
+            .clipShape(RoundedRectangle(cornerRadius: AppTheme.cornerMd))
+        case .needsHousehold:
+            Button {
+                _Concurrency.Task {
+                    await supabaseConnection.createHousehold(
+                        named: settings?.householdName ?? "My Home",
+                        weekStartsMonday: settings?.weekStartsMonday ?? true
+                    )
+                }
+            } label: {
+                Label("Create Shared Household", systemImage: "house.badge.plus")
+                    .frame(maxWidth: .infinity)
+            }
+            .buttonStyle(.borderedProminent)
+        case .ready:
+            VStack(alignment: .leading, spacing: AppTheme.spacingMd) {
+                HStack {
+                    Label("Supabase sharing active", systemImage: "checkmark.shield.fill")
+                        .font(.footnote.weight(.semibold))
+                        .foregroundColor(ColorAsset.success.color)
+                    Spacer()
+                    Button("Sign Out", role: .destructive) { supabaseConnection.signOut() }
+                        .font(.footnote.weight(.semibold))
+                }
+                if let invitationURL = supabaseConnection.invitationURL {
+                    ShareLink(
+                        item: invitationURL,
+                        subject: Text("Join my Tidyly household"),
+                        message: Text("Use this link to join my shared household in Tidyly.")
+                    ) {
+                        Label("Share Invitation", systemImage: "square.and.arrow.up")
+                            .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.borderedProminent)
+                    if let expiresAt = supabaseConnection.invitationExpiresAt {
+                        Text("This link expires \(expiresAt.formatted(date: .abbreviated, time: .shortened)).")
+                            .font(.caption)
+                            .foregroundColor(ColorAsset.textTertiary.color)
+                    }
+                    Button("Create a New Link") {
+                        supabaseConnection.clearCreatedInvitation()
+                        _Concurrency.Task { await supabaseConnection.createInvitation() }
+                    }
+                    .font(.footnote.weight(.semibold))
+                } else {
+                    Button {
+                        _Concurrency.Task { await supabaseConnection.createInvitation() }
+                    } label: {
+                        Label("Create Invitation Link", systemImage: "person.badge.plus")
+                            .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.bordered)
+                }
+            }
+        case .failed:
+            HStack {
+                Button("Retry") { _Concurrency.Task { await supabaseConnection.retry() } }
+                    .buttonStyle(.bordered)
+                Spacer()
+                Button("Sign Out", role: .destructive) { supabaseConnection.signOut() }
+            }
+        case .loading, .authenticating:
+            EmptyView()
+        }
+    }
+
+    private var pendingInvitationAction: some View {
+        VStack(alignment: .leading, spacing: AppTheme.spacingMd) {
+            Label("Household invitation received", systemImage: "envelope.badge.fill")
+                .font(.footnote.weight(.semibold))
+                .foregroundColor(ColorAsset.primary.color)
+            Text("Back up any local rooms and tasks before joining. They cannot be merged into the shared household yet.")
+                .font(.footnote)
+                .foregroundColor(ColorAsset.textTertiary.color)
+            HStack {
+                Button("Export Backup") {
+                    _Concurrency.Task { await exportData() }
+                }
+                .buttonStyle(.bordered)
+                Spacer()
+                if case .signedOut = supabaseConnection.state {
+                    Button("Sign In First") { supabaseConnection.startAppleSignIn() }
+                        .buttonStyle(.borderedProminent)
+                } else {
+                    Button("Review and Join") {
+                        showingSupabaseJoinConfirmation = true
+                    }
+                    .buttonStyle(.borderedProminent)
+                }
+            }
+            Button("Decline") { supabaseConnection.cancelPendingInvitation() }
+                .font(.footnote)
+        }
+    }
+
+    private func joinSupabaseHousehold() async {
+        do {
+            try await supabaseConnection.acceptPendingInvitation()
+            try db.clearLocalHouseholdContentForSupabaseJoin()
+            dataTransferStatus = "Joined the shared household. Local household data was cleared after acceptance."
+        } catch {
+            householdSharingError = "Couldn’t join the Supabase household: \(error.localizedDescription)"
         }
     }
 

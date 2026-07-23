@@ -1,0 +1,4 @@
+-- Intentionally empty.
+--
+-- Auth-backed development fixtures belong in focused database tests so local
+-- resets do not create accounts or household data unexpectedly.

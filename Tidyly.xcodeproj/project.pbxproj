@@ -14,6 +14,7 @@
 		119FFC47E7853263D69F0194 /* TidylyWidget.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = B023C2A285E14CB2F54B29D3 /* TidylyWidget.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		14716EDE3CF2C8CB20F565F9 /* CloudShareAppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = B36508034700A1C7652C5839 /* CloudShareAppDelegate.swift */; };
 		1A28BCEE3F093C44C715A877 /* SwiftDataModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = A9C60C3187F4B3733EDEA82D /* SwiftDataModels.swift */; };
+		1BC8C52C9113E049483CBF5B /* SupabaseConnectionService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4DB53E0D2344FA66C208374F /* SupabaseConnectionService.swift */; };
 		21F7990BEB82628289E228C8 /* DatabaseService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 11260A82BF61818E2AD8C021 /* DatabaseService.swift */; };
 		2AB1000C9FE0479A0FDF88DD /* RoomEditorSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 147AC17B53C28ABC2425FAA4 /* RoomEditorSheet.swift */; };
 		2DB577963E9366DF1C21D2C8 /* WidgetSnapshot.swift in Sources */ = {isa = PBXBuildFile; fileRef = A041D2110075780EF7A964AA /* WidgetSnapshot.swift */; };
@@ -34,6 +35,7 @@
 		66417D85080136C56A42AAFA /* SettingsScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = 723779658F5BAADEBC5FCE84 /* SettingsScreen.swift */; };
 		6B231CD5D3D2EB91789330C1 /* TidylyApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 572AFED675A083DBA923F783 /* TidylyApp.swift */; };
 		6B6CC67A64FE6316456E79E5 /* EmptyStateView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2F1E1C00C9761E2CF5E38EA9 /* EmptyStateView.swift */; };
+		6D49C333BFB3381CBB07EE02 /* SupabaseConnectionService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4DB53E0D2344FA66C208374F /* SupabaseConnectionService.swift */; };
 		6E5DC11AF5B6461A1F0C08FC /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A208D29EF95DD408840E656C /* Assets.xcassets */; };
 		6F080E9F3DDCE0B2CBD90D4B /* ProgressRing.swift in Sources */ = {isa = PBXBuildFile; fileRef = B3BB862A5339C5E41C91FDC7 /* ProgressRing.swift */; };
 		741C23DA7155D491B713A4FC /* ScheduleScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = 248093A0AC262017DB98AF7B /* ScheduleScreen.swift */; };
@@ -125,6 +127,7 @@
 		2F1E1C00C9761E2CF5E38EA9 /* EmptyStateView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EmptyStateView.swift; sourceTree = "<group>"; };
 		334D54A0C634C8FE24CA1E0D /* CloudSharingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CloudSharingView.swift; sourceTree = "<group>"; };
 		42C03DD8A811CFE940AAFA5B /* TidylyBackup.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TidylyBackup.swift; sourceTree = "<group>"; };
+		4DB53E0D2344FA66C208374F /* SupabaseConnectionService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SupabaseConnectionService.swift; sourceTree = "<group>"; };
 		56381DC50ADCB3A019625EA4 /* NotificationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationService.swift; sourceTree = "<group>"; };
 		56540A6B0CDEF726B3488311 /* Tidyly.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Tidyly.entitlements; sourceTree = "<group>"; };
 		572AFED675A083DBA923F783 /* TidylyApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TidylyApp.swift; sourceTree = "<group>"; };
@@ -209,6 +212,7 @@
 				11260A82BF61818E2AD8C021 /* DatabaseService.swift */,
 				1D8AEE7E3AA90CC1141D3835 /* HouseholdSharingService.swift */,
 				56381DC50ADCB3A019625EA4 /* NotificationService.swift */,
+				4DB53E0D2344FA66C208374F /* SupabaseConnectionService.swift */,
 			);
 			path = Services;
 			sourceTree = "<group>";
@@ -464,6 +468,7 @@
 				E137C6CD843CB2752C060BC0 /* SearchScreen.swift in Sources */,
 				9090918F07004E2030008094 /* SettingsScreen.swift in Sources */,
 				EC89637DE6E7938BAA856861 /* StatsScreen.swift in Sources */,
+				6D49C333BFB3381CBB07EE02 /* SupabaseConnectionService.swift in Sources */,
 				1A28BCEE3F093C44C715A877 /* SwiftDataModels.swift in Sources */,
 				FC0BB59D3A5320CAB3E6417E /* TaskCardView.swift in Sources */,
 				9C209F12CA76D1FCED4C970F /* TaskEditorSheet.swift in Sources */,
@@ -498,6 +503,7 @@
 				53055C3BE7E833D27460BC66 /* SearchScreen.swift in Sources */,
 				66417D85080136C56A42AAFA /* SettingsScreen.swift in Sources */,
 				89B09C60FD300992DDDCE49A /* StatsScreen.swift in Sources */,
+				1BC8C52C9113E049483CBF5B /* SupabaseConnectionService.swift in Sources */,
 				9E515DA40585C4D52AECEA59 /* SwiftDataModels.swift in Sources */,
 				EB5D84B7299C81852A17BE53 /* TaskCardView.swift in Sources */,
 				0CDE338DF763DB27F59B44B5 /* TaskEditorSheet.swift in Sources */,
@@ -560,7 +566,7 @@
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 6;
+				CURRENT_PROJECT_VERSION = 7;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				ENABLE_NS_ASSERTIONS = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
@@ -576,7 +582,7 @@
 				INFOPLIST_KEY_NSHumanReadableCopyright = "Copyright (c) 2026 Tidyly. All rights reserved.";
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				MACOSX_DEPLOYMENT_TARGET = 14.0;
-				MARKETING_VERSION = 1.0.0;
+				MARKETING_VERSION = 1.0.7;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -637,7 +643,7 @@
 				SDKROOT = macosx;
 				SUPPORTS_MACCATALYST = NO;
 				SUPPORTS_MAC_DESIGNED_FOR_IPAD_IPHONE = NO;
-				configs = "[\"Debug\": [\"SWIFT_ACTIVE_COMPILATION_CONDITIONS\": \"DEBUG\"], \"Release\": [\"SWIFT_ACTIVE_COMPILATION_CONDITIONS\": \"\"]]";
+				configs = "[\"Release\": [\"SWIFT_ACTIVE_COMPILATION_CONDITIONS\": \"\"], \"Debug\": [\"SWIFT_ACTIVE_COMPILATION_CONDITIONS\": \"DEBUG\"]]";
 			};
 			name = Release;
 		};
@@ -709,7 +715,7 @@
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 6;
+				CURRENT_PROJECT_VERSION = 7;
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;
@@ -731,7 +737,7 @@
 				INFOPLIST_KEY_NSHumanReadableCopyright = "Copyright (c) 2026 Tidyly. All rights reserved.";
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				MACOSX_DEPLOYMENT_TARGET = 14.0;
-				MARKETING_VERSION = 1.0.0;
+				MARKETING_VERSION = 1.0.7;
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;
@@ -805,7 +811,7 @@
 				SDKROOT = macosx;
 				SUPPORTS_MACCATALYST = NO;
 				SUPPORTS_MAC_DESIGNED_FOR_IPAD_IPHONE = NO;
-				configs = "[\"Debug\": [\"SWIFT_ACTIVE_COMPILATION_CONDITIONS\": \"DEBUG\"], \"Release\": [\"SWIFT_ACTIVE_COMPILATION_CONDITIONS\": \"\"]]";
+				configs = "[\"Release\": [\"SWIFT_ACTIVE_COMPILATION_CONDITIONS\": \"\"], \"Debug\": [\"SWIFT_ACTIVE_COMPILATION_CONDITIONS\": \"DEBUG\"]]";
 			};
 			name = Debug;
 		};
