@@ -3,6 +3,7 @@ import SwiftUI
 struct TaskEditorSheet: View {
     @Environment(\.dismiss) var dismiss
     @EnvironmentObject var db: DatabaseService
+    @EnvironmentObject var supabaseConnection: SupabaseConnectionService
 
     let room: Room
     let task: Task?
@@ -22,6 +23,7 @@ struct TaskEditorSheet: View {
     @State private var reminderTime = Calendar.current.date(from: DateComponents(hour: 9)) ?? Date()
     @State private var existingTasks: [Task] = []
     @State private var pendingSuggestion: TaskSuggestion?
+    @State private var selectedAssigneeId: UUID?
 
     private var selectedRoom: Room {
         rooms.first(where: { $0.id == selectedRoomId }) ?? room
@@ -42,6 +44,7 @@ struct TaskEditorSheet: View {
         self.onSaved = onSaved
         _selectedRoomId = State(initialValue: task?.roomId ?? room.id)
         _isGeneralHouseholdTask = State(initialValue: task?.isGeneralHouseholdTask ?? (room.id == Task.generalHouseholdRoomId))
+        _selectedAssigneeId = State(initialValue: task?.assignedMembershipId)
     }
 
     var body: some View {
@@ -57,6 +60,28 @@ struct TaskEditorSheet: View {
                             .textFieldStyle(.roundedBorder)
                     }
                     .padding(.top, AppTheme.spacingMd)
+
+                    if !supabaseConnection.householdMembers.isEmpty {
+                        VStack(alignment: .leading, spacing: AppTheme.spacingSm) {
+                            Text("Assigned To")
+                                .font(.system(size: 13, weight: .semibold))
+                                .foregroundColor(ColorAsset.textSecondary.color)
+                            Picker("Assigned To", selection: $selectedAssigneeId) {
+                                Text("Unassigned").tag(UUID?.none)
+                                ForEach(supabaseConnection.householdMembers) { member in
+                                    Text(member.displayName ?? "Tidyly member")
+                                        .tag(Optional(member.id))
+                                }
+                            }
+                            .pickerStyle(.menu)
+                            Text("Anyone in the household can still complete this task.")
+                                .font(.caption)
+                                .foregroundColor(ColorAsset.textTertiary.color)
+                        }
+                        .padding(AppTheme.spacingLg)
+                        .background(ColorAsset.surfaceAlt.color)
+                        .cornerRadius(AppTheme.cornerMd)
+                    }
 
                     VStack(alignment: .leading, spacing: AppTheme.spacingMd) {
                         Toggle("Remind me", isOn: $remindersEnabled)
@@ -342,14 +367,20 @@ struct TaskEditorSheet: View {
                     priority: priority,
                     estimatedMinutes: minutes,
                     roomId: selectedRoomId,
-                    isGeneralHouseholdTask: isGeneralHouseholdTask
+                    isGeneralHouseholdTask: isGeneralHouseholdTask,
+                    assignedMembershipId: selectedAssigneeId,
+                    updateAssignment: true
                 )
                 let time = Calendar.current.dateComponents([.hour, .minute], from: reminderTime)
                 try await db.updateTaskReminder(id: task.id, enabled: remindersEnabled, hour: usesCustomReminderTime ? time.hour : nil, minute: usesCustomReminderTime ? time.minute : nil)
+                if let savedTask = try await db.fetchAllTasks().first(where: { $0.id == task.id }) {
+                    try await supabaseConnection.saveTask(savedTask, assignedMembershipId: selectedAssigneeId)
+                }
             } else {
                 let newTask = try await db.createTask(
                     roomId: selectedRoomId,
                     isGeneralHouseholdTask: isGeneralHouseholdTask,
+                    assignedMembershipId: selectedAssigneeId,
                     title: title,
                     frequencyDays: frequency,
                     priority: priority,
@@ -357,6 +388,8 @@ struct TaskEditorSheet: View {
                 )
                 let time = Calendar.current.dateComponents([.hour, .minute], from: reminderTime)
                 try await db.updateTaskReminder(id: newTask.id, enabled: remindersEnabled, hour: usesCustomReminderTime ? time.hour : nil, minute: usesCustomReminderTime ? time.minute : nil)
+                let savedTask = try await db.fetchAllTasks().first(where: { $0.id == newTask.id }) ?? newTask
+                try await supabaseConnection.saveTask(savedTask, assignedMembershipId: selectedAssigneeId)
             }
             onSaved()
             dismiss()
@@ -393,14 +426,16 @@ struct TaskEditorSheet: View {
                     .map { $0.title.lowercased() }
             )
             for suggestion in suggestions where !existingTitles.contains(suggestion.title.lowercased()) {
-                _ = try await db.createTask(
+                let newTask = try await db.createTask(
                     roomId: selectedRoomId,
                     isGeneralHouseholdTask: isGeneralHouseholdTask,
+                    assignedMembershipId: selectedAssigneeId,
                     title: suggestion.title,
                     frequencyDays: suggestion.frequencyDays,
                     priority: suggestion.priority,
                     estimatedMinutes: suggestion.estimatedMinutes
                 )
+                try await supabaseConnection.saveTask(newTask, assignedMembershipId: selectedAssigneeId)
             }
             onSaved()
             dismiss()

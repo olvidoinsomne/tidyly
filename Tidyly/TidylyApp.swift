@@ -48,6 +48,7 @@ struct TidylyApp: App {
                     .environmentObject(supabaseConnection)
                     .tag(4)
             }
+            .environmentObject(supabaseConnection)
             .modelContainer(db.modelContainer)
             .tint(ColorAsset.primary.color)
             .preferredColorScheme(darkModeEnabled ? .dark : .light)

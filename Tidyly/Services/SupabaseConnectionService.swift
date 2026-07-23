@@ -53,6 +53,10 @@ final class SupabaseConnectionService: ObservableObject, HouseholdRoomRepository
     }
 
     var currentUserId: UUID? { session?.userId }
+    var activeHouseholdId: UUID? {
+        guard case .ready(let household) = state else { return nil }
+        return household.id
+    }
 
     var statusText: String {
         switch state {
@@ -481,6 +485,61 @@ final class SupabaseConnectionService: ObservableObject, HouseholdRoomRepository
         return task
     }
 
+    func saveTask(_ task: Task, assignedMembershipId: UUID?) async throws {
+        guard let householdId = activeHouseholdId else { throw SupabaseError.notAuthenticated }
+        let roomId = task.isGeneralHouseholdTask ? nil : task.roomId
+        let due = Calendar.current.dateComponents([.year, .month, .day], from: task.nextDueAt)
+        let nextDueOn = String(
+            format: "%04d-%02d-%02d",
+            due.year ?? 1970,
+            due.month ?? 1,
+            due.day ?? 1
+        )
+        if sharedTasks.contains(where: { $0.id == task.id }) {
+            let rows: [HouseholdTaskRecord] = try await authorizedRequest(
+                path: "rest/v1/tasks",
+                queryItems: [
+                    URLQueryItem(name: "id", value: "eq.\(task.id.uuidString)"),
+                    URLQueryItem(name: "household_id", value: "eq.\(householdId.uuidString)"),
+                    URLQueryItem(name: "select", value: "id,household_id,room_id,assigned_membership_id,title,frequency_days,priority,estimated_minutes,last_completed_at,next_due_on,sort_order,updated_at,version")
+                ],
+                method: "PATCH",
+                body: SupabaseTaskSave(
+                    roomId: roomId,
+                    assignedMembershipId: assignedMembershipId,
+                    title: task.title,
+                    frequencyDays: task.frequencyDays,
+                    priority: task.priority.rawValue,
+                    estimatedMinutes: task.estimatedMinutes,
+                    nextDueOn: nextDueOn,
+                    sortOrder: task.sortOrder
+                ),
+                prefer: "return=representation"
+            )
+            guard !rows.isEmpty else { throw HouseholdRepositoryError.taskNotFound }
+        } else {
+            let rows: [HouseholdTaskRecord] = try await authorizedRequest(
+                path: "rest/v1/tasks",
+                queryItems: [URLQueryItem(name: "select", value: "id,household_id,room_id,assigned_membership_id,title,frequency_days,priority,estimated_minutes,last_completed_at,next_due_on,sort_order,updated_at,version")],
+                method: "POST",
+                body: SupabaseTaskInsert(
+                    id: task.id,
+                    householdId: householdId,
+                    roomId: roomId,
+                    assignedMembershipId: assignedMembershipId,
+                    title: task.title,
+                    frequencyDays: task.frequencyDays,
+                    priority: task.priority.rawValue,
+                    estimatedMinutes: task.estimatedMinutes,
+                    nextDueOn: nextDueOn
+                ),
+                prefer: "return=representation"
+            )
+            guard !rows.isEmpty else { throw HouseholdRepositoryError.taskNotFound }
+        }
+        await refreshSharedData()
+    }
+
     private func refresh(_ refreshToken: String) async throws -> SupabaseSession {
         try await request(
             path: "auth/v1/token",
@@ -781,6 +840,7 @@ private struct AcceptInvitationRequest: Encodable {
 }
 
 private struct SupabaseTaskInsert: Encodable {
+    let id: UUID?
     let householdId: UUID
     let roomId: UUID?
     let assignedMembershipId: UUID?
@@ -790,14 +850,73 @@ private struct SupabaseTaskInsert: Encodable {
     let estimatedMinutes: Int
     let nextDueOn: String
 
+    init(
+        id: UUID? = nil,
+        householdId: UUID,
+        roomId: UUID?,
+        assignedMembershipId: UUID?,
+        title: String,
+        frequencyDays: Int,
+        priority: String,
+        estimatedMinutes: Int,
+        nextDueOn: String
+    ) {
+        self.id = id
+        self.householdId = householdId
+        self.roomId = roomId
+        self.assignedMembershipId = assignedMembershipId
+        self.title = title
+        self.frequencyDays = frequencyDays
+        self.priority = priority
+        self.estimatedMinutes = estimatedMinutes
+        self.nextDueOn = nextDueOn
+    }
+
     enum CodingKeys: String, CodingKey {
-        case title, priority
+        case id, title, priority
         case householdId = "household_id"
         case roomId = "room_id"
         case assignedMembershipId = "assigned_membership_id"
         case frequencyDays = "frequency_days"
         case estimatedMinutes = "estimated_minutes"
         case nextDueOn = "next_due_on"
+    }
+}
+
+private struct SupabaseTaskSave: Encodable {
+    let roomId: UUID?
+    let assignedMembershipId: UUID?
+    let title: String
+    let frequencyDays: Int
+    let priority: String
+    let estimatedMinutes: Int
+    let nextDueOn: String
+    let sortOrder: Int
+
+    enum CodingKeys: String, CodingKey {
+        case title, priority
+        case roomId = "room_id"
+        case assignedMembershipId = "assigned_membership_id"
+        case frequencyDays = "frequency_days"
+        case estimatedMinutes = "estimated_minutes"
+        case nextDueOn = "next_due_on"
+        case sortOrder = "sort_order"
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encodeIfPresent(roomId, forKey: .roomId)
+        if let assignedMembershipId {
+            try container.encode(assignedMembershipId, forKey: .assignedMembershipId)
+        } else {
+            try container.encodeNil(forKey: .assignedMembershipId)
+        }
+        try container.encode(title, forKey: .title)
+        try container.encode(frequencyDays, forKey: .frequencyDays)
+        try container.encode(priority, forKey: .priority)
+        try container.encode(estimatedMinutes, forKey: .estimatedMinutes)
+        try container.encode(nextDueOn, forKey: .nextDueOn)
+        try container.encode(sortOrder, forKey: .sortOrder)
     }
 }
 

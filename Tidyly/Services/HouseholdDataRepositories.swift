@@ -170,7 +170,7 @@ final class LocalHouseholdRepository: HouseholdRoomRepository, HouseholdTaskRepo
             HouseholdTaskRecord(
                 id: $0.id, householdId: nil,
                 roomId: $0.isGeneralHouseholdTask ? nil : $0.roomId,
-                assignedMembershipId: nil, title: $0.title,
+                assignedMembershipId: $0.assignedMembershipId, title: $0.title,
                 frequencyDays: $0.frequencyDays, priority: $0.priority.rawValue,
                 estimatedMinutes: $0.estimatedMinutes,
                 lastCompletedAt: $0.lastDoneAt,

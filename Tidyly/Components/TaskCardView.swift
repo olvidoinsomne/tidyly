@@ -32,6 +32,7 @@ enum TaskRescheduleAction {
 
 struct TaskCardView: View {
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @EnvironmentObject private var supabaseConnection: SupabaseConnectionService
 
     let taskWithRoom: TaskWithRoom
     var isCompleted: Bool = false
@@ -155,6 +156,22 @@ struct TaskCardView: View {
         .cornerRadius(8)
 
         if !isCompleted {
+            if let membershipId = task.assignedMembershipId,
+               let member = supabaseConnection.householdMembers.first(where: { $0.id == membershipId }) {
+                HStack(spacing: 3) {
+                    Image(systemName: "person.fill")
+                        .accessibilityHidden(true)
+                    Text(member.displayName ?? "Tidyly member")
+                        .lineLimit(1)
+                }
+                .font(.caption.weight(.semibold))
+                .foregroundColor(ColorAsset.primary.color)
+                .padding(.horizontal, 8)
+                .padding(.vertical, 4)
+                .background(ColorAsset.primary.color.opacity(0.12))
+                .cornerRadius(8)
+            }
+
             HStack(spacing: 4) {
                 Circle()
                     .fill(priority.color.color)
